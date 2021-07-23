@@ -36,6 +36,25 @@ example_act.experiment_treatment (
   , create_datetime           TIMESTAMP
 );
 
+-- audience
+CREATE OR REPLACE TABLE
+example_act.audience (
+    audience_id               INT64
+  , name                      STRING
+  , create_datetime           TIMESTAMP
+);
+
+-- audience_filter
+CREATE OR REPLACE TABLE
+example_act.audience_filter (
+    audience_filter_id        INT64
+  , audience_id               INT64
+  , filter_on                 STRING
+  , comparator_sql            STRING
+  , comparator_params         STRING
+  , create_datetime           TIMESTAMP
+);
+
 -- BACKEND DATA
 
 -- audience

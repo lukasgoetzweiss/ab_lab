@@ -8,10 +8,15 @@ source("~/Documents/Career/ab_lab/act_lib.R")
 
 #### global data ----
 
-treatment = data.table(get_treatment())
+# query
+treatment = get_treatment()
 user = get_user()
-user[, incl := T]
+audience = get_audience()
+audience_filter = get_audience_filter()
+
+# prepare
 metadata = create_metadata(user)
+user[, incl := T]
 
 #### UI ----
 
@@ -20,17 +25,20 @@ css <- HTML(" body {
             }")
 
 ui = navbarPage(
-  "ACT", 
+  "ACT",
+  id = "mainNav",
   theme = shinytheme("flatly"),
   # tags$head(tags$style(css)),
   # . experiment ----
-  tabPanel(
+  navbarMenu(
     "Experiment",
-    tabsetPanel(
-      tabPanel(
-        "View",
-        h2("")
-      )
+    tabPanel(
+      "View",
+      h2("put view here")
+    ),
+    tabPanel(
+      "Create",
+      h2("put create here")
     )
   ),
   # . treatment ----
@@ -40,19 +48,25 @@ ui = navbarPage(
     actionButton("createTreatment", "Create New", icon = icon("fas fa-plus"))
   ),
   # . audience ----
-  tabPanel(
+  navbarMenu(
     "Audience",
-    tabsetPanel(
-      tabPanel(
-        "View",
-        h2("put audiences here")
-      ),
-      tabPanel(
-        "Create",
-        DTOutput('audienceFilter'),
-        actionButton("createAudienceFilter", "Create New", icon = icon("fas fa-plus")),
-        p()
-      )
+    tabPanel(
+      "View",
+      value = "view",
+      DTOutput('audience'),
+      DTOutput('audienceSelected')
+    ),
+    tabPanel(
+      "Create",
+      h2("Audience Filters"),
+      DTOutput('audienceFilter'),
+      actionButton("createAudienceFilter", 
+                   "Add Filter", 
+                   icon = icon("fas fa-plus")),
+      p(),
+      actionButton("createAudience",
+                   "Save Audience"),
+      p()
     )
   )
 )
@@ -61,7 +75,7 @@ ui = navbarPage(
 
 #### SERVER ----
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   rv = reactiveValues()
   
@@ -69,11 +83,13 @@ server <- function(input, output) {
   
   # . outputs ----
   
-  output$treatment <- renderDT(treatment)
+  rv$treatment = copy(treatment)
+  
+  output$treatment <- renderDT(rv$treatment)
   
   # . modals ----
   
-  treatmentModal <- function() {
+  createTreatmentModal <- function() {
     modalDialog(
       textInput("treatmentName", "Treatment Name: "
       ),
@@ -84,17 +100,25 @@ server <- function(input, output) {
     )
   }
   
+  loadingModal = function(text = "Loading...") {
+    modalDialog(
+      p(text)
+    )
+  }
+  
   # . events ----
   
   # . . createTreatment ----
   observeEvent(input$createTreatment, {
-    showModal(treatmentModal())
+    showModal(createTreatmentModal())
   })
   
   # . . treatmentOk ----
   observeEvent(input$treatmentOk, {
+    removeModal()
+    showModal(loadingModal("Creating Treatment ..."))
     create_treatment(name = input$treatmentName)
-    treatment = get_treatment()
+    rv$treatment = get_treatment()
     removeModal()
   })
   
@@ -102,25 +126,11 @@ server <- function(input, output) {
   
   # . reactive values ----
   
+  rv$audience = copy(audience)
+  rv$audienceFilterAll = copy(audience_filter)
+  
   rv$audienceFilter = data.table()
-  # rv$audienceFilterMetric = c()
-  
-  # . . audienceFilterMetricOptions ----
-  rv$audienceFilterMetricOptions = reactive({
-    metadata$user_metric[
-      name == input$audienceFilterMetric, 
-      c(metric_min, metric_max)
-    ]
-  })
-  
-  # . . audienceFilterVariableOptions ----
-  rv$audienceFilterVariableOptions = reactive({
-    metadata$user_variable_value[
-      variable == input$audienceFilterVariable, 
-      unique(value)
-      ]
-  })
-  
+
   # . . user ----
   rv$user = reactive({
     u = copy(user)
@@ -134,8 +144,19 @@ server <- function(input, output) {
   
   # . outputs ----
   
+  # . . audience -----
+  output$audience <- renderDT(rv$audience, selection = 'single')
+  
   # . . audienceFilter ----
   output$audienceFilter = renderDT(rv$audienceFilter)
+  
+  # . . audienceFilterMetricOptions ----
+  rv$audienceFilterMetricOptions = reactive({
+    metadata$user_metric[
+      name == input$audienceFilterMetric, 
+      c(metric_min, metric_max)
+    ]
+  })
   
   # . . audienceFilterMetricRange ----
   output$audienceFilterMetricRange = renderUI({
@@ -148,26 +169,15 @@ server <- function(input, output) {
     )
   })
   
-  # . . audienceFilterVariableRange ----
-  output$audienceFilterVariableRange = renderUI({
-    selectInput(
-      "audienceFilterVariableSelected",
-      "Values: ", 
-      choices = rv$audienceFilterVariableOptions(),
-      multiple = T
-    )
-  })
-  
   # . . audienceFilterMetricPlot ----
   output$audienceFilterMetricPlot = renderPlot({
     
     rv$user()[, incl_margin := get(input$audienceFilterMetric) %between% input$audienceFilterMetricRange]
     
     ggplot(rv$user(), aes(get(input$audienceFilterMetric),
-                     fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
+                          fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
       geom_histogram(stat="count") + 
       ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) + 
-      # guides(fill = F) + 
       scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"), 
                         breaks = c("Included", "Removed", "Filtered by prior filter"),
                         name = "") +
@@ -176,6 +186,24 @@ server <- function(input, output) {
       theme(panel.background = element_blank(),
             panel.grid.major.y = element_line(color = "grey90"),
             legend.position = "bottom")
+  })
+  
+  # . . audienceFilterVariableOptions ----
+  rv$audienceFilterVariableOptions = reactive({
+    metadata$user_variable_value[
+      variable == input$audienceFilterVariable, 
+      unique(value)
+    ]
+  })
+  
+  # . . audienceFilterVariableRange ----
+  output$audienceFilterVariableRange = renderUI({
+    selectInput(
+      "audienceFilterVariableSelected",
+      "Values: ", 
+      choices = rv$audienceFilterVariableOptions(),
+      multiple = T
+    )
   })
   
   # . . audienceFilterVariablePlot ----
@@ -187,7 +215,6 @@ server <- function(input, output) {
                           fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
       geom_histogram(stat="count") + 
       ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) + 
-      # guides(fill = F) + 
       scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"), 
                         breaks = c("Included", "Removed", "Filtered by prior filter"),
                         name = "") +
@@ -233,12 +260,36 @@ server <- function(input, output) {
           modalButton("Cancel"),
           actionButton("audienceFilterVariableOk", "OK")
         )
-        
+      )
+    )
+  }
+  
+  createAudienceModal <- function(){
+    modalDialog(
+      textInput(
+        "audienceName",
+        "Audience Name: "
+      ),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("createAudienceOk", "OK")
       )
     )
   }
   
   # . events ----
+  
+  # . . audience_rows_selected ----
+  observeEvent(input$audience_rows_selected, {
+    output$audienceSelected = renderDT(
+      rv$audienceFilterAll[
+        audience_id == rv$audience[
+          input$audience_rows_selected,
+          audience_id
+        ]
+      ]
+    )
+  })
   
   # . . createAudienceFilter ----
   observeEvent(input$createAudienceFilter, {
@@ -256,10 +307,10 @@ server <- function(input, output) {
     rv$audienceFilter = copy(rbind(
       rv$audienceFilter, 
       data.table(
-        filter_on = input$audienceFilterMetric, 
-        comparator_sql = glue(
-          "{input$audienceFilterMetric} >= {input$audienceFilterMetricRange[1]} 
-            and {input$audienceFilterMetric} <= {input$audienceFilterMetricRange[2]}"
+        filter_on = input$audienceFilterMetric,
+        comparator_sql = paste(
+          input$audienceFilterMetric, ">=", input$audienceFilterMetricRange[1],
+          "and", input$audienceFilterMetric, "<=", input$audienceFilterMetricRange[2]
         ),
         comparator_params = comparator_params
       )
@@ -282,14 +333,40 @@ server <- function(input, output) {
       rv$audienceFilter, 
       data.table(
         filter_on = input$audienceFilterVariable, 
-        comparator_sql = glue(
-          "{input$audienceFilterVariable} in ('{comparator_sql_str}')"
+        comparator_sql = paste(
+          input$audienceFilterVariable, " in ('", comparator_sql_str, "')",
+          sep = ""
         ),
         comparator_params = comparator_params
-        )
+      )
     ))
     removeModal()
   })
+  
+  # . . createAudience ----
+  observeEvent(input$createAudience,{
+    showModal(createAudienceModal())
+  })
+  
+  # . . createAudienceOk ----
+  observeEvent(input$createAudienceOk, {
+    removeModal()
+    showModal(loadingModal("Creating Audience ..."))
+    create_audience(
+      name = input$audienceName, 
+      audience_filter = rv$audienceFilter
+    )
+    rv$audience = get_audience()
+    rv$audienceFilterAll = get_audience_filter()
+    # reset rv$audienceFilter
+    rv$audienceFilter = data.table()
+    removeModal()
+    updateTabsetPanel(
+      session, "mainNav",
+      selected = "view"
+    )
+  })
+  
   
   
 }

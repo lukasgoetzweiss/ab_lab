@@ -1,7 +1,9 @@
 # act_lib.R
 
 library(bigrquery)
+library(bigQueryR)
 library(data.table)
+library(lubridate)
 library(glue)
 library(ggplot2)
 
@@ -18,21 +20,31 @@ pull_data = function(sql, projectID = Sys.getenv("bq_projectID")){
   return(res)
 }
 
-load_data = function(data, dataTable, 
+load_data = function(tableId, upload_data, 
                      dataSet = Sys.getenv("bq_dataSet"), 
-                     projectID = Sys.getenv("bq_projectID")){
+                     projectID = Sys.getenv("bq_projectID"),
+                     writeDisposition = "WRITE_APPEND"){
   
   # insert_upload_job("your-project-id", "test_dataset", "stash", stash)
   
-  tmpFile = tempfile(tmpdir = "~/Downloads/tmp", fileext = ".csv")
-  fwrite(data, tmpFile, col.names = F)
-  
-  bash_cmd = glue(
-    "bq load --source_format=CSV {projectID}:{dataSet}.{dataTable} {tmpFile}"
+  bqr_upload_data(
+    projectId = projectID,
+    datasetId = dataSet, 
+    tableId = tableId,
+    upload_data = upload_data,
+    writeDisposition = writeDisposition
   )
   
-  message(bash_cmd)
-  message("rm ", tmpFile)
+  
+  # tmpFile = tempfile(tmpdir = "~/Downloads/tmp", fileext = ".csv")
+  # fwrite(data, tmpFile, col.names = F)
+  # 
+  # bash_cmd = glue(
+  #   "bq load --source_format=CSV {projectID}:{dataSet}.{dataTable} {tmpFile}"
+  # )
+  # 
+  # message(bash_cmd)
+  # message("rm ", tmpFile)
   
   return()
   
@@ -91,52 +103,78 @@ create_metadata = function(user = NULL){
 
 #### treatment ----
 
-create_treatment = function(name, database = Sys.getenv("bq_dataSet")){
-  treatment_id = pull_data(glue(
-    "select max(treatment_id)  from {database}.treatment"
-  ))$f0_[1] + 1
-  if(is.na(treatment_id)){ treatment_id = 1 }
-  message("creating treatment ", name, ", treatment_id = ", treatment_id)
-  load_data(
-    data.table(
-      treatment_id = treatment_id,
-      name = name,
-      create_datetime = Sys.time()
-      ), 
-    "treatment"
-  )
-  return(treatment_id)
+get_treatment = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.treatment")))
 }
 
-get_treatment = function(database = Sys.getenv("bq_dataSet")){
-  data.table(pull_data(glue("select * from {database}.treatment")))
+create_treatment = function(name, dataset = Sys.getenv("bq_dataSet")){
+  
+  treatment_id = pull_data(glue(
+    "select max(treatment_id)  from {dataset}.treatment"
+  ))$f0_[1] + 1
+  if(is.na(treatment_id)){ treatment_id = 1 }
+  
+  message("creating treatment ", name, ", treatment_id = ", treatment_id)
+  
+  load_data(
+    "treatment",
+    data.table(
+      treatment_id = as.integer(treatment_id),
+      name = name,
+      create_datetime = Sys.time()
+      )
+  )
+  
+  return(treatment_id)
+  
 }
 
 #### audience ----
 
-create_audience_metric_filter = function(metric, filter_variable, filter_range){
+get_audience = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.audience")))
+}
+
+get_audience_filter = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.audience_filter")))
+}
+
+create_audience = function(name, audience_filter,
+                           dataset = Sys.getenv("bq_dataSet")){
+  audience_id = pull_data(glue(
+    "select max(audience_id)  from {dataset}.audience"
+  ))$f0_[1] + 1
+  if(is.na(audience_id)){ audience_id = 1 }
   
-  return(
-    list(
-      plot = ggplot(metric[variable == filter_variable],
-             aes(value, fill = value %between% filter_range)) +
-        geom_histogram() + 
-        scale_fill_manual(name = "", values = c("grey80", "grey40")),
-      filter = data.table(
-        source_table = "user_metric", 
-        filter_variable = filter_variable, 
-        comparator = glue("value >= {filter_range[1]} and value <= {filter_range[2]}")
-      )
+  message("creating audience ", name, ", audience_id = ", audience_id)
+  
+  load_data(
+    "audience",
+    data.table(
+      audience_id = as.integer(audience_id),
+      name = name,
+      create_datetime = Sys.time()
     )
   )
   
+  audience_filter_id = pull_data(glue(
+    "select max(audience_filter_id)  from {dataset}.audience_filter"
+  ))$f0_[1]
+  if(is.na(audience_filter_id)){ audience_filter_id = 0 }
   
-  # ex_audience_filter = data.table(
-  #   source_table = "user_variable", 
-  #   source_table_id = 1, 
-  #   comparator = "in ('Here', 'There')"
-  # )
+  audience_filter_id = audience_filter_id + (1:audience_filter[, .N])
   
+  load_data(
+    "audience_filter",
+    audience_filter[, .(audience_filter_id = as.integer(audience_filter_id),
+                        audience_id = as.integer(audience_id),
+                        filter_on,
+                        comparator_sql,
+                        comparator_params,
+                        create_datetime = Sys.time())]
+  )
+  
+  return(audience_id)
 }
 
 apply_filter = function(user, filter_params){
@@ -159,15 +197,8 @@ apply_filter = function(user, filter_params){
   return(user)
 }
 
-create_audience = function(){
-  #...
-  return(audience_id)
-}
 
-get_audience = function(){
-  #...
-  return(audience)
-}
+
 
 #### experiment ----
 
