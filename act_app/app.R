@@ -13,6 +13,8 @@ treatment = get_treatment()
 user = get_user()
 audience = get_audience()
 audience_filter = get_audience_filter()
+experiment = get_experiment()
+experiment_treatment = get_experiment_treatment()
 
 # prepare
 metadata = create_metadata(user)
@@ -34,13 +36,26 @@ ui = navbarPage(
     "Experiment",
     tabPanel(
       "View",
-      h2("put view here")
+      value = "viewExperiment",
+      DTOutput("experiment"),
+      DTOutput("experimentSelected")
     ),
     tabPanel(
       "Create",
-      h2("put create here")
+      sidebarLayout(
+        sidebarPanel(
+          actionButton("createExperimentTreatment", "Add Treatment"), 
+          p(),
+          uiOutput("experimentCreateUI"),
+          width = 3
+        ),
+        mainPanel(
+          DTOutput("experimentTreatmentNew")
+        )
+      ),
     )
   ),
+  
   # . treatment ----
   tabPanel(
     "Treatment",
@@ -52,7 +67,7 @@ ui = navbarPage(
     "Audience",
     tabPanel(
       "View",
-      value = "view",
+      value = "viewAudience",
       DTOutput('audience'),
       DTOutput('audienceSelected')
     ),
@@ -64,8 +79,7 @@ ui = navbarPage(
                    "Add Filter", 
                    icon = icon("fas fa-plus")),
       p(),
-      actionButton("createAudience",
-                   "Save Audience"),
+      uiOutput("audienceCreateUI"),
       p()
     )
   )
@@ -79,7 +93,156 @@ server <- function(input, output, session) {
   
   rv = reactiveValues()
   
-  # treatment ----
+  # EXPERIMENT ----
+  # . reactive values ----
+  
+  rv$experiment = copy(experiment)
+  rv$experimentTreatment = copy(experiment_treatment)
+  
+  # holds treatments while creating new expereiment
+  rv$experimentTreatmentNew = data.table()
+  
+  # . outputs ----
+  
+  output$experiment <- renderDT(rv$experiment, selection = 'single')
+  output$experiment_treatment <- renderDT(rv$experiment_treatment, selection = 'single')
+  
+  # . . experimentTreatmentNew ----
+  output$experimentTreatmentNew <- renderDT(
+    format_audience_experiment(
+      rv$experimentTreatmentNew,
+      rv$treatment
+    ),
+    options = list(paging = FALSE, searching = FALSE)
+  )
+  
+  # . . experimentCreateUI ----
+  
+  output$experimentCreateUI = renderUI({
+    if(nrow(rv$experimentTreatmentNew)){
+      return(
+        actionButton(
+          "createExperiment",
+          "Select Audience and Save Experiment"
+        )
+      )
+    } else {
+      return(p(""))
+    }
+  })
+  
+  # . modals ----
+  
+  createExperimentTreatmentModal = function(){
+    modalDialog(
+      selectInput(
+        "createExperimentTreatmentSelected",
+        label = "Select Treatment",
+        choices = treatment[, unique(name)]
+      ),
+      numericInput(
+        "createExperimentTreatmentWeight",
+        label = "Treatment Weight",
+        value = 1,
+        min = 0
+      ),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("createExperimentTreatmentOk", "OK")
+      )
+    )
+  }
+  
+  createExperimentModal = function(){
+    modalDialog(
+      textInput(
+        "experimentName",
+        "Experiment Name: "
+      ),
+      selectInput(
+        "experimentAudienceNew",
+        "Select Audience",
+        choices = rv$audience[, unique(name)]
+      ),
+      dateRangeInput(
+        "experimentDateRange",
+        "Select Dates",
+        start = Sys.Date() + days(1), 
+        end = Sys.Date() + days(8), 
+        min = Sys.Date() + days(1)
+      ),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("createExperimentOk", "OK")
+      )
+    )  
+  }
+  
+  # . events ----
+  
+  # . . experiment_rows_selected ----
+  observeEvent(input$experiment_rows_selected, {
+    output$experimentSelected = renderDT(
+      rv$experimentTreatment[
+        experiment_id == rv$experiment[
+          input$experiment_rows_selected,
+          experiment_id
+        ]
+      ]
+    )
+  })
+  
+  # . . createExperimentTreatment ----
+  
+  observeEvent(input$createExperimentTreatment, {
+    showModal(createExperimentTreatmentModal())
+  })
+  
+  # . . createExperimentTreatmentOk ----
+  observeEvent(input$createExperimentTreatmentOk, {
+    rv$experimentTreatmentNew = rbind(
+      copy(rv$experimentTreatmentNew),
+      data.table(
+        treatment_id = treatment[
+          name == input$createExperimentTreatmentSelected,
+          treatment_id
+        ],
+        weight = input$createExperimentTreatmentWeight
+      ) 
+    )
+    removeModal()
+  })
+  
+  # . . createExperiment ----
+  
+  observeEvent(input$createExperiment, {
+    showModal(createExperimentModal())
+  })
+  
+  # . . createExperimentOk ----
+  
+  observeEvent(input$createExperimentOk, {
+    removeModal()
+    showModal(loadingModal("Creating Experiment ..."))
+    create_experiment(
+      name = input$experimentName,
+      audience_id = rv$audience[which(name == input$experimentAudienceNew),
+                                audience_id],
+      experiment_treatment = rv$experimentTreatmentNew,
+      start_datetime = input$experimentDateRange[1],
+      end_datetime = input$experimentDateRange[2]
+    )
+    rv$experiment = get_experiment()
+    rv$experimentTreatment = get_experiment_treatment()
+    rv$experimentTreatmentNew = data.table()
+    removeModal()
+    updateTabsetPanel(
+      session, "mainNav",
+      selected = "viewExperiment"
+    )
+  })
+  
+  # TREATMENT ----
   
   # . outputs ----
   
@@ -122,7 +285,7 @@ server <- function(input, output, session) {
     removeModal()
   })
   
-  # audience ----
+  # AUDIENCE ----
   
   # . reactive values ----
   
@@ -223,6 +386,20 @@ server <- function(input, output, session) {
       theme(panel.background = element_blank(),
             panel.grid.major.y = element_line(color = "grey90"),
             legend.position = "bottom")
+  })
+  
+  # . . audienceCreateUI ----
+  output$audienceCreateUI = renderUI({
+    if(nrow(rv$audienceFilter)){
+      return(
+        actionButton(
+          "createAudience",
+          "Save Audience"
+        )
+      )
+    } else {
+      return(p("Add a filter to begin"))
+    }
   })
   
   # . modals ----
@@ -349,6 +526,7 @@ server <- function(input, output, session) {
   })
   
   # . . createAudienceOk ----
+  
   observeEvent(input$createAudienceOk, {
     removeModal()
     showModal(loadingModal("Creating Audience ..."))
@@ -363,7 +541,7 @@ server <- function(input, output, session) {
     removeModal()
     updateTabsetPanel(
       session, "mainNav",
-      selected = "view"
+      selected = "viewAudience"
     )
   })
   

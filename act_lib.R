@@ -202,23 +202,76 @@ apply_filter = function(user, filter_params){
 
 #### experiment ----
 
-create_experiment = function(name, start_datetime, end_datetime){
+get_experiment = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.experiment")))
+}
+
+get_experiment_treatment = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.experiment_treatment")))
+}
+
+create_experiment = function(name, 
+                             audience_id, experiment_treatment,
+                             start_datetime, end_datetime,
+                             dataset = Sys.getenv("bq_dataSet")){
+  
+  experiment_id = pull_data(glue(
+    "select max(experiment_id)  from {dataset}.experiment"
+  ))$f0_[1] + 1
+  if(is.na(experiment_id)){ experiment_id = 1 }
+  
+  message("creating experiment ", name, ", experiment_id = ", experiment_id)
   
   load_data(
-    data.table(
+    "experiment",
+    experiment_treatment[, .(
+      experiment_id = as.integer(experiment_id),
+      audience_id = as.integer(audience_id),
       name = name,
-      start_datetime = start_datetime,
-      end_datetime = end_datetime
-    ), 
-    "experiment"
+      start_datetime = as.POSIXct(start_datetime),
+      end_datetime = as.POSIXct(end_datetime),
+      create_datetime = Sys.time()
+    )]
+  ) 
+  
+  experiment_treatment_id = pull_data(glue(
+    "select max(experiment_treatment_id)  from {dataset}.experiment_treatment"
+  ))$f0_[1]
+  if(is.na(experiment_treatment_id)){ experiment_treatment_id = 0 }
+  
+  experiment_treatment_id = experiment_treatment_id + (1:experiment_treatment[, .N])
+  
+  load_data(
+    "experiment_treatment",
+    experiment_treatment[, .(
+      experiment_treatment_id = as.integer(experiment_treatment_id),
+      experiment_id = as.integer(experiment_id),
+      treatment_id,
+      sample_weight = weight / sum(weight),
+      create_datetime = Sys.time()
+    )]
   )
   
   return(experiment_id)
 }
 
-get_experiment = function(){
+format_audience_experiment = function(experiment_treatment, treatment){
   
-  return(experiment)
+  if(!nrow(experiment_treatment)){
+    return(NULL)
+  }
+  
+  experiment_treatment_fmt = merge(
+    experiment_treatment,
+    treatment,
+    by = "treatment_id"
+  )
+  
+  return(experiment_treatment_fmt[, .(
+    ` ` = name,
+    Weight = weight, 
+    `Sample Percent` = scales::percent(weight / sum(weight)))]
+  )
   
 }
 
