@@ -7,17 +7,20 @@ library(lubridate)
 library(glue)
 library(ggplot2)
 
-#### definitions ----
+#### set environment ----
 
 Sys.setenv(bq_projectID = "hazel-champion-318400")
 Sys.setenv(bq_dataSet = "example_act")
+
+# authenticate
+bigQueryR::bqr_auth(json_file = "~/Downloads/hazel-champion-318400-412f14ac362f.json")
 
 #### data util ----
 
 pull_data = function(sql, projectID = Sys.getenv("bq_projectID")){
   tb <- bq_project_query(projectID, sql)
   res = bq_table_download(tb)
-  return(res)
+  return(data.table(res))
 }
 
 load_data = function(tableId, upload_data, 

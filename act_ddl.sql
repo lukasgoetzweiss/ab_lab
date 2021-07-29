@@ -60,3 +60,13 @@ example_act.audience_filter (
 -- audience
 
 -- experiment_audience
+CREATE OR REPLACE TABLE
+example_act.experiment_audience (
+    experiment_audience_id    INT64
+  , experiment_id             INT64
+  , user_id                   INT64
+  , treatment_id              INT64
+  , active_fg                 STRING
+  , create_datetime           TIMESTAMP
+  , modified_datetime         TIMESTAMP
+);

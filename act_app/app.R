@@ -138,7 +138,7 @@ server <- function(input, output, session) {
       selectInput(
         "createExperimentTreatmentSelected",
         label = "Select Treatment",
-        choices = treatment[, unique(name)]
+        choices = rv$treatment[, unique(name)]
       ),
       numericInput(
         "createExperimentTreatmentWeight",
@@ -203,7 +203,7 @@ server <- function(input, output, session) {
     rv$experimentTreatmentNew = rbind(
       copy(rv$experimentTreatmentNew),
       data.table(
-        treatment_id = treatment[
+        treatment_id = rv$treatment[
           name == input$createExperimentTreatmentSelected,
           treatment_id
         ],
@@ -265,7 +265,7 @@ server <- function(input, output, session) {
   
   loadingModal = function(text = "Loading...") {
     modalDialog(
-      p(text)
+      p(text), footer = NULL
     )
   }
   
