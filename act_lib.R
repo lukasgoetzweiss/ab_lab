@@ -26,7 +26,8 @@ pull_data = function(sql, projectID = Sys.getenv("bq_projectID")){
 load_data = function(tableId, upload_data, 
                      dataSet = Sys.getenv("bq_dataSet"), 
                      projectID = Sys.getenv("bq_projectID"),
-                     writeDisposition = "WRITE_APPEND"){
+                     writeDisposition = "WRITE_APPEND",
+                     schema = NULL){
   
   # insert_upload_job("your-project-id", "test_dataset", "stash", stash)
   
@@ -35,7 +36,9 @@ load_data = function(tableId, upload_data,
     datasetId = dataSet, 
     tableId = tableId,
     upload_data = upload_data,
-    writeDisposition = writeDisposition
+    writeDisposition = writeDisposition, 
+    schema = schema,
+    autodetect = F
   )
   
   
@@ -213,6 +216,10 @@ get_experiment_treatment = function(dataset = Sys.getenv("bq_dataSet")){
   data.table(pull_data(glue("select * from {dataset}.experiment_treatment")))
 }
 
+get_experiment_audience = function(dataset = Sys.getenv("bq_dataSet")){
+  data.table(pull_data(glue("select * from {dataset}.experiment_audience")))
+}
+
 create_experiment = function(name, 
                              audience_id, experiment_treatment,
                              start_datetime, end_datetime,
@@ -277,6 +284,71 @@ format_audience_experiment = function(experiment_treatment, treatment){
   )
   
 }
+
+# analysis ----
+
+gg_colors = c("#F18E7E", "#69AEDB", "#87D4C4", "#BAB5BA")
+
+get_analysis_data = function(dataset = Sys.getenv("bq_dataSet")){
+  return(pull_data(glue(
+    " select ud.user_id
+          ,  ea.treatment_id
+          ,  case when ud.timestamp > e.start_datetime
+                  then 'post'
+                  else 'pre' end          as period
+          ,  t.name                       as treatment
+          ,  sum(ud.units_sold)
+        from example_data.user_data ud
+        join {dataset}.experiment_audience ea
+          on ea.user_id = ud.user_id
+         and ea.experiment_id = 1
+        join {dataset}.experiment e
+          on e.experiment_id = ea.experiment_id
+         and ud.timestamp > date_add(e.start_datetime, INTERVAL -14 DAY)
+         and ud.timestamp < e.end_datetime
+        join {dataset}.treatment t
+          on t.treatment_id = ea.treatment_id
+       group by 1,2,3,4"
+  )))
+}
+
+get_analysis_timeseries = function(dataset = Sys.getenv("bq_dataSet")){
+  return(pull_data(glue(
+    " select ud.timestamp
+          ,  ea.treatment_id
+          ,  t.name                       as treatment
+          ,  avg(ud.units_sold)           as impact_metric
+        from example_data.user_data ud
+        join {dataset}.experiment_audience ea
+          on ea.user_id = ud.user_id
+         and ea.experiment_id = 1
+        join {dataset}.experiment e
+          on e.experiment_id = ea.experiment_id
+         and ud.timestamp > date_add(e.start_datetime, INTERVAL -14 DAY)
+         and ud.timestamp < e.end_datetime
+        join {dataset}.treatment t
+          on t.treatment_id = ea.treatment_id
+       group by 1,2,3"
+  )))
+}
+
+# analysis_timeseries = get_analysis_timeseries()
+# 
+# ggplot(analysis_timeseries, aes(timestamp, impact_metric, color = treatment)) + 
+#   geom_line(size = 1) + 
+#   xlab("") + 
+#   scale_color_manual(name = "Treatment", values = gg_colors) + 
+#   theme(panel.background = element_blank(),
+#         panel.grid.major.y = element_line(color = "grey90"),
+#         panel.grid.major.x = element_line(color = "grey90"))
+# 
+# analysis_data = get_analysis_data()
+# 
+# t.test(analysis_data[period == "pre" & treatment == "Control", f0_],
+#        analysis_data[period == "pre" & treatment != "Control", f0_])
+# 
+# t.test(analysis_data[period == "post" & treatment == "Control", f0_],
+#        analysis_data[period == "post" & treatment != "Control", f0_])
 
 # util ----
 
