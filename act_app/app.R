@@ -21,6 +21,8 @@ audience = get_audience()
 audience_filter = get_audience_filter()
 experiment = get_experiment()
 experiment_treatment = get_experiment_treatment()
+experiment_audience = get_experiment_audience()
+impact_variables = get_impact_variables()
 
 # prepare
 metadata = create_metadata(user)
@@ -37,14 +39,43 @@ ui = navbarPage(
   id = "mainNav",
   theme = shinytheme("flatly"),
   # tags$head(tags$style(css)),
+  tags$head(tags$style(HTML('* {font-family: "Courier"};'))),
   # . experiment ----
   navbarMenu(
     "Experiment",
     tabPanel(
       "View",
       value = "viewExperiment",
-      DTOutput("experiment"),
-      DTOutput("experimentSelected")
+      fluidRow(
+        column(3, 
+               selectInput(inputId = "selectedExperiment",
+                           label = "Select Experiment", 
+                           choices = experiment[, name], 
+                           multiple = F),
+               selectInput("impactVariable",
+                           "Select Impact Variable",
+                           choices = impact_variables,
+                           multiple = F)
+               ),
+        column(3,
+               verbatimTextOutput("experimentSummary")),
+        column(4,
+               # selectInput("impactVariable",
+               #             "Select Impact Variable",
+               #             choices = impact_variables,
+               #             multiple = F)),
+                actionButton("loadImpact", "Measure impact")),
+        column(2, p("")
+               # actionButton("loadImpact", "Measure impact")
+               )
+      ),
+      hr(), 
+      fluidRow(
+        column(5,
+               verbatimTextOutput("impactSummary")),
+        column(7,
+               plotOutput("impactPlot"))
+      )
     ),
     tabPanel(
       "Create",
@@ -58,7 +89,7 @@ ui = navbarPage(
         mainPanel(
           DTOutput("experimentTreatmentNew")
         )
-      ),
+      )
     )
   ),
   
@@ -414,13 +445,30 @@ server <- function(input, output, session) {
   # local copy of experiment_treatment table
   rv$experimentTreatment = copy(experiment_treatment)
   
-  # holds treatments while creating new expereiment
+  # holds treatments while creating new experiment
   rv$experimentTreatmentNew = data.table()
   
   # outputs ----
   
-  output$experiment <- renderDT(rv$experiment, selection = 'single')
+  # output$experiment <- renderDT(rv$experiment[, .(name)], selection = 'single')
   output$experiment_treatment <- renderDT(rv$experiment_treatment, selection = 'single')
+  
+  # . experimentSummary ----
+  output$experimentSummary <- renderText(
+    get_experiment_summary(input$selectedExperiment)
+  )
+  
+  # . impactSummary ----
+  output$impactSummary <- renderText(
+    get_analysis_stats(rv$analysis_data)
+  )
+  
+  # . impactPlot ----
+  output$impactPlot <- renderPlot(
+    plot_analysis_timeseries(rv$analysis_timeseries,
+                             input$selectedExperiment,
+                             rv$impactVariableLoaded)
+  )
   
   # . experimentTreatmentNew ----
   output$experimentTreatmentNew <- renderDT(
@@ -449,16 +497,17 @@ server <- function(input, output, session) {
   # events ----
   
   # . experiment_rows_selected ----
-  observeEvent(input$experiment_rows_selected, {
+  # observeEvent(input$experiment_rows_selected, {
     output$experimentSelected = renderDT(
       rv$experimentTreatment[
         experiment_id == rv$experiment[
-          input$experiment_rows_selected,
+          # input$experiment_rows_selected,
+          name == input$selectedExperiment,
           experiment_id
         ]
       ]
     )
-  })
+  # })
   
   # . createExperimentTreatmentModal ----
   createExperimentTreatmentModal = function(){
@@ -550,6 +599,26 @@ server <- function(input, output, session) {
       session, "mainNav",
       selected = "viewExperiment"
     )
+  })
+  
+  
+  # . loadImpact ----
+  
+  observeEvent(input$loadImpact, {
+    showModal(loadingModal("Loading unit-wise observations ..."))
+    rv$impactVariableLoaded = copy(input$impactVariable)
+    rv$analysis_data = get_analysis_data(
+      experiment_name = input$selectedExperiment, 
+      impact_variable = input$impactVariable,
+      pre_period_days = 14
+    )
+    showModal(loadingModal("Loading timeseries data ..."))
+    rv$analysis_timeseries = get_analysis_timeseries(
+      experiment_name = input$selectedExperiment, 
+      impact_variable = input$impactVariable,
+      pre_period_days = 14
+    )
+    removeModal()
   })
   
 }

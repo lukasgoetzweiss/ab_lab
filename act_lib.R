@@ -5,7 +5,9 @@ library(bigQueryR)
 library(data.table)
 library(lubridate)
 library(glue)
+library(stringr)
 library(ggplot2)
+library(scales)
 
 #### set environment ----
 
@@ -287,9 +289,43 @@ format_audience_experiment = function(experiment_treatment, treatment){
 
 # analysis ----
 
-gg_colors = c("#F18E7E", "#69AEDB", "#87D4C4", "#BAB5BA")
+gg_colors = c("#F18E7E", "#69AEDB", "grey10", "#87D4C4", "#BAB5BA")
 
-get_analysis_data = function(dataset = Sys.getenv("bq_dataSet")){
+get_impact_variables = function(source_table = "example_data.user_data"){
+  return(setdiff(
+    names(pull_data(glue("select * from {source_table} limit 1"))),
+    c("user_id", "timestamp")
+  ))
+}
+
+get_experiment_summary = function(experiment_name){
+  exp_id = experiment[name == experiment_name, experiment_id]
+  exp_vol = experiment_audience[experiment_id == exp_id, .N, treatment_id]
+  exp_vol = merge(exp_vol, treatment[, .(name, treatment_id)])
+  exp_start = experiment[name == experiment_name, start_datetime]
+  days_live = as.numeric(today() - as_date(exp_start))
+  if(days_live > 0){
+    days_live_str = str_c("Live since ", 
+                          as_date(exp_start), 
+                          " (", days_live, ")\n")
+  } else {
+    days_live_str = str_c("Launches in ", -days_live, " days\n")
+  }
+  return(str_c(
+    days_live_str,
+    "Treatments:\n",
+    paste(exp_vol[, str_c("  ", name, " (N = ", N, ")")], collapse = "\n")
+  ))
+  
+}
+
+get_analysis_data = function(dataset = Sys.getenv("bq_dataSet"),
+                             experiment_name,
+                             impact_variable,
+                             pre_period_days = 14){
+  
+  exp_id = experiment[name == experiment_name, experiment_id]
+  
   return(pull_data(glue(
     " select ud.user_id
           ,  ea.treatment_id
@@ -297,14 +333,14 @@ get_analysis_data = function(dataset = Sys.getenv("bq_dataSet")){
                   then 'post'
                   else 'pre' end          as period
           ,  t.name                       as treatment
-          ,  sum(ud.units_sold)
+          ,  avg(ud.{impact_variable})    as impact_variable
         from example_data.user_data ud
         join {dataset}.experiment_audience ea
           on ea.user_id = ud.user_id
-         and ea.experiment_id = 1
+         and ea.experiment_id = {exp_id}
         join {dataset}.experiment e
           on e.experiment_id = ea.experiment_id
-         and ud.timestamp > date_add(e.start_datetime, INTERVAL -14 DAY)
+         and ud.timestamp > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
          and ud.timestamp < e.end_datetime
         join {dataset}.treatment t
           on t.treatment_id = ea.treatment_id
@@ -312,19 +348,83 @@ get_analysis_data = function(dataset = Sys.getenv("bq_dataSet")){
   )))
 }
 
-get_analysis_timeseries = function(dataset = Sys.getenv("bq_dataSet")){
+get_analysis_stats = function(analysis_data){
+  
+  if(is.null(analysis_data)){
+    return("Press Measure Impact to get results")
+  }
+
+  pre.tt = t.test(
+    analysis_data[period == "pre" & treatment == "Control", impact_variable],
+    analysis_data[period == "pre" & treatment != "Control", impact_variable]
+  )
+
+  post.tt = t.test(
+    analysis_data[period == "post" & treatment == "Control", impact_variable],
+    analysis_data[period == "post" & treatment != "Control", impact_variable]
+  )
+  
+  fmt_lift = function(x){str_c(ifelse(x > 0, "+", ""), percent(x))}
+  
+  impact_point_est = str_c(
+    "    Control: ", 
+    signif(pre.tt$estimate[1]), " -> ", signif(post.tt$estimate[1]),
+    " (", fmt_lift(post.tt$estimate[1] / pre.tt$estimate[1] - 1), ")\n", 
+    "       Test: ",
+    signif(pre.tt$estimate[2]), " -> ", signif(post.tt$estimate[2]),
+    " (", fmt_lift(post.tt$estimate[2] / pre.tt$estimate[2] - 1), ")"
+  )
+  
+  lift.pre = pre.tt$estimate[2] / pre.tt$estimate[1] - 1
+  lift.post = post.tt$estimate[2] / post.tt$estimate[1] - 1
+  
+  comp_str = function(x){
+    ifelse(x<0, "lower than control", "higher than control")
+  }
+  
+  format_tt_ci = function(tt){
+    str_c("(", 
+          percent(-tt$conf.int[2] / tt$estimate[1]),
+          ", ",
+          percent(-tt$conf.int[1] / tt$estimate[1]),
+          ")"
+    )
+          
+  }
+  
+  tt_res = str_c(
+    " Pre period: test ",
+    percent(abs(lift.pre)), " ", comp_str(lift.pre),
+    ", p = ", signif(pre.tt$p.value, 4), "\n",
+    "Post period: test ", 
+    percent(abs(lift.post)), " ", comp_str(lift.post),
+    ", p = ", signif(post.tt$p.value, 4), "\n\n",
+    "95% confidence interval for impact: ", format_tt_ci(post.tt)
+  )
+  
+  return(str_c(impact_point_est, "\n\n", tt_res))
+  
+}
+
+get_analysis_timeseries = function(dataset = Sys.getenv("bq_dataSet"),
+                                   experiment_name,
+                                   impact_variable,
+                                   pre_period_days = 14){
+  
+  exp_id = experiment[name == experiment_name, experiment_id]
+  
   return(pull_data(glue(
     " select ud.timestamp
           ,  ea.treatment_id
           ,  t.name                       as treatment
-          ,  avg(ud.units_sold)           as impact_metric
+          ,  avg(ud.{impact_variable})    as impact_metric
         from example_data.user_data ud
         join {dataset}.experiment_audience ea
           on ea.user_id = ud.user_id
-         and ea.experiment_id = 1
+         and ea.experiment_id = {exp_id}
         join {dataset}.experiment e
           on e.experiment_id = ea.experiment_id
-         and ud.timestamp > date_add(e.start_datetime, INTERVAL -14 DAY)
+         and ud.timestamp > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
          and ud.timestamp < e.end_datetime
         join {dataset}.treatment t
           on t.treatment_id = ea.treatment_id
@@ -332,23 +432,46 @@ get_analysis_timeseries = function(dataset = Sys.getenv("bq_dataSet")){
   )))
 }
 
-# analysis_timeseries = get_analysis_timeseries()
+plot_analysis_timeseries = function(analysis_timeseries, 
+                                    experiment_name,
+                                    impact_variable){
+  
+  if(is.null(analysis_timeseries)){
+    return(
+      ggplot() + ggtitle("") + theme(panel.background = element_blank())
+    )
+  }
+  
+  exp_start = experiment[name == experiment_name, start_datetime]
+  
+  return(
+    ggplot(analysis_timeseries, aes(timestamp, impact_metric, color = treatment)) +
+      geom_line(size = 1.5) +
+      geom_vline(linetype = "dashed", size = 1,
+                 mapping = aes(color = "Intervention", xintercept = exp_start)) +
+      guides(linetype = F) + 
+      xlab("") +
+      ylab(impact_variable) + 
+      ggtitle(str_c("Impact on ", impact_variable, " from ", experiment_name)) + 
+      scale_color_manual(name = "", values = gg_colors) +
+      theme(legend.position = "bottom", 
+            panel.background = element_blank(),
+            panel.grid.major.y = element_line(color = "grey90"),
+            panel.grid.major.x = element_line(color = "grey90"),
+            text = element_text(size = 24, family = "mono"))
+  )
+}
+
+# analysis_timeseries = get_analysis_timeseries(experiment_name = experiment_name,
+#                                               impact_variable = "units_sold")
 # 
-# ggplot(analysis_timeseries, aes(timestamp, impact_metric, color = treatment)) + 
-#   geom_line(size = 1) + 
-#   xlab("") + 
-#   scale_color_manual(name = "Treatment", values = gg_colors) + 
+# ggplot(analysis_timeseries, aes(timestamp, impact_metric, color = treatment)) +
+#   geom_line(size = 1) +
+#   xlab("") +
+#   scale_color_manual(name = "Treatment", values = gg_colors) +
 #   theme(panel.background = element_blank(),
 #         panel.grid.major.y = element_line(color = "grey90"),
 #         panel.grid.major.x = element_line(color = "grey90"))
-# 
-# analysis_data = get_analysis_data()
-# 
-# t.test(analysis_data[period == "pre" & treatment == "Control", f0_],
-#        analysis_data[period == "pre" & treatment != "Control", f0_])
-# 
-# t.test(analysis_data[period == "post" & treatment == "Control", f0_],
-#        analysis_data[period == "post" & treatment != "Control", f0_])
 
 # util ----
 
