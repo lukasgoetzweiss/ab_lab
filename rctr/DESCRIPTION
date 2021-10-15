@@ -1,0 +1,24 @@
+Package: rctr
+Title: R-based Randomized Control Trials with Database Backend
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Lukas",
+           family = "Goetz-Weiss",
+           role = c("aut", "cre"),
+           email = "lrg130@gmail.com",
+           comment = structure("YOUR-ORCID-ID", .Names = "ORCID"))
+Description: This package implements a database interface and analytical backend to design, randomize, and analyze Randomized Controlled Trials (RCTs).
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Imports: 
+    bigQueryR,
+    bigrquery,
+    data.table,
+    ggplot2,
+    glue,
+    lubridate,
+    scales,
+    stringr
