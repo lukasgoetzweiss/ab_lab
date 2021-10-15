@@ -16,6 +16,7 @@ library(ggplot2)
 library(scales)
 
 devtools::load_all("../rctr/")
+source("experiment_creation_survey.R")
 
 loadingModal = function(text = "Loading...") {
   modalDialog(p(text), footer = NULL)
@@ -24,18 +25,18 @@ loadingModal = function(text = "Loading...") {
 #### global data ----
 
 # query data from rctr schema
-treatment = get_table("treatment")
-audience = get_table("audience")
-audience_filter = get_table("audience_filter")
-experiment = get_table("experiment")
-experiment_treatment = get_table("experiment_treatment")
-experiment_audience = get_table("experiment_audience")
-
-user = get_table("user", dataset = "example_data")
-impact_variables = setdiff(
-  names(get_table("user_data", dataset = "example_data", limit = 1)),
-  c("user_id", "timestamp")
-)
+# treatment = get_table("treatment")
+# audience = get_table("audience")
+# audience_filter = get_table("audience_filter")
+# experiment = get_table("experiment")
+# experiment_treatment = get_table("experiment_treatment")
+# experiment_audience = get_table("experiment_audience")
+# 
+# user = get_table("user", dataset = "example_data")
+# impact_variables = setdiff(
+#   names(get_table("user_data", dataset = "example_data", limit = 1)),
+#   c("user_id", "timestamp")
+# )
 
 # prepare
 metadata = create_user_metadata(user)
@@ -88,69 +89,7 @@ ui = navbarPage(
     ),
     tabPanel(
       "Create",
-      tabsetPanel(
-        tabPanel(
-          "Treatment",
-          value = "questionnaire.treatment",
-          sidebarLayout(
-            sidebarPanel(
-              actionButton("createExperimentTreatment", "Add Treatment"), 
-              p(),
-              uiOutput("experimentCreateUI"),
-              width = 3
-            ),
-            mainPanel(
-              DTOutput("experimentTreatmentNew")
-            )
-          )
-        ),
-        tabPanel(
-          "Audience and Variable",
-          value = "questionnaire.audience_variable",
-          h4("Audience"),
-          p("put audience seletion here"),
-          
-          h4("Impact Variables"),
-          p("put impact variables seletion here")
-        ),
-        tabPanel(
-          "Delivery",
-          value = "questionnaire.delivery",
-          uiOutput("qD.1.ui"),
-          uiOutput("qD.2.ui"),
-          uiOutput("qD.3.ui"),
-          uiOutput("qD.3b.ui"),
-          actionButton("q.d.next", "Continue")
-        ),
-        tabPanel(
-          "Attrition",
-          value = "questionnaire.attrition",
-          uiOutput("qA.1.ui"),
-          uiOutput("qA.2.ui"),
-          textOutput("qA.2b.ui"),
-          actionButton("q.a.next", "Continue")
-        ),
-        tabPanel(
-          "Contamination",
-          value = "questionnaire.contamination",
-          
-          # move to server
-          radioButtons(
-            "qC.1",
-            label = paste("Is it possible that <treatment> could impact <impact",
-                          "variable> other <unit>s?"),
-            choices = c("Yes", "No"),
-            selected = "No",
-            inline = T
-          ),
-          
-          actionButton("q.c.next", "Continue")
-        ),
-        tabPanel(
-          "Save",
-          p("Output summarizing experiment")
-        )
-      )
+      create_experiement_ui() # (see experiment_creation_survey.R)
     )
   ),
   
@@ -500,126 +439,6 @@ server <- function(input, output, session) {
   # * * * * EXPERIMENT * * * * ----
   # reactive values ----
   
-  # creation survey ----
-  
-  # . deliverability ----
-  
-  output$qD.1.ui <- renderUI({
-     return(
-       radioButtons(
-         "qD.1",
-         label = "Can you ensure every assigned <unit> will receive <treatment>?",
-         choices = c("Yes", "No"),
-         selected = "Yes",
-         inline = T
-       )
-     )
-  })
-  
-  output$qD.2.ui <- renderUI({
-    if(!length(input$qD.1) || input$qD.1 == "Yes"){
-      return(p(""))
-    } else {
-      return(
-        selectInput(
-          "qD.2",
-          label = "What metric specifies who recieves <treatment>?",
-          choices = c("dummy option 1", "dummy option 2", "Not Collected"),
-          selected = "dummy option 1",
-          multiple = F
-        )
-      )
-    }
-  })
-  
-  output$qD.3.ui <- renderUI({
-    if(!length(input$qD.1) || input$qD.1 == "Yes"){
-      return(p(""))
-    } else if(!length(input$qD.2) || input$qD.2 != "Not Collected"){
-      return(p(""))
-    } else if(!length(input$qD.2) || input$qD.2 == "Not Collected"){
-      return(
-        radioButtons(
-          "qD.3",
-          label = "Do you know what percent of assigned <unit>s will receive <treatment>?",
-          choices = c("Yes", "No"),
-          selected = "Yes",
-          inline = T
-        )
-      )
-    }
-  })
-  
-  output$qD.3b.ui <- renderUI({
-    if(!length(input$qD.1) || input$qD.1 == "Yes"){
-      return(p(""))
-    } else if(!length(input$qD.2) || input$qD.2 != "Not Collected"){
-      return(p(""))
-    } else if(!length(input$qD.3) || input$qD.3 == "No"){
-      return(p("Unable to account for compliance, will only report on intented treatment impact"))
-    } else {
-      return(
-        numericInput(
-          "qD.3b",
-          label = "Enter percent of assigned <unit>s that will receive <treatment>",
-          min = 0,
-          max = 1,
-          step = 0.01,
-          value = 0.9,
-          width = '33%'
-        )
-      )
-    }
-  })
-  
-  # . attrition ----
-  
-  output$qA.1.ui <- renderUI({
-    radioButtons(
-      "qA.1",
-      label = paste("Is it possible that we won’t know <impact variable> for",
-                    "some <unit>s at the end of the study?"),
-      choices = c("Yes", "No"),
-      selected = "No",
-      inline = T,
-      width = '100%'
-    )
-  })
-  output$qA.2.ui <- renderUI({
-    if(!length(input$qA.1) || input$qA.1 == "No"){
-      return(p(""))
-    } else {
-      return(
-        radioButtons(
-          "qA.2",
-          label = "Do we expect the treatment to impact attrition, either directly or indirectly?",
-          choices = c("Yes", "No"),
-          selected = "No",
-          inline = T
-        )
-      )
-    }
-  })
-  
-  output$qA.2b.ui <- renderText({
-    if(!length(input$qA.1) || input$qA.1 == "No"){
-      return("")
-    }
-    if(!length(input$qA.2) || input$qA.2 == "No"){
-      return(paste(
-        "If there is no correlation between treatment and attrition,",
-        "attrition will not bias measurement. We will confirm independence",
-        "when analyzing results."
-      ))
-    } else {
-      return(paste(
-        "Warning: We will need to make some big assumptions about missing",
-        "data to ensure results are not biased, uneven attrition may lead to",
-        "extremely large confidence intervals"
-      ))
-    }
-  })
-  
   # local copy of experiment table
   rv$experiment = copy(experiment)
   
@@ -627,163 +446,117 @@ server <- function(input, output, session) {
   rv$experimentTreatment = copy(experiment_treatment)
   
   # holds treatments while creating new experiment
-  rv$experimentTreatmentNew = data.table()
+  # initialize with control and a weighting of 1
+  rv$experimentTreatmentNew = data.table(treatment_id = 1, weight = 1)
   
-  # outputs ----
-  
+  # DO I NEED THIS?
   # output$experiment <- renderDT(rv$experiment[, .(name)], selection = 'single')
-  output$experiment_treatment <- renderDT(rv$experiment_treatment, selection = 'single')
   
-  # . experimentSummary ----
-  output$experimentSummary <- renderText(
-    get_experiment_summary(input$selectedExperiment,
-                           experiment_audience = experiment_audience,
-                           experiment = rv$experiment,
-                           treatment = rv$treatment)
-  )
+  # CREATE EXPERIMENT ----
+  # 
+  # add treatments (deprecate) ----
+  # output$experiment_treatment <- renderDT(rv$experiment_treatment, selection = 'single')
+  # 
+  # # . experimentTreatmentNew ----
+  # output$experimentTreatmentNew <- renderDT(
+  #   format_experiment_treatment(
+  #     rv$experimentTreatmentNew,
+  #     rv$treatment
+  #   ),
+  #   options = list(paging = FALSE, searching = FALSE)
+  # )
+  # 
+  # # . createExperimentTreatmentModal ----
+  # createExperimentTreatmentModal = function(){
+  #   modalDialog(
+  #     selectInput(
+  #       "createExperimentTreatmentSelected",
+  #       label = "Select Treatment",
+  #       choices = setdiff(rv$treatment[, unique(name)], "Control")
+  #     ),
+  #     numericInput(
+  #       "createExperimentTreatmentWeight",
+  #       label = "Treatment Weight",
+  #       value = 1,
+  #       min = 0
+  #     ),
+  #     footer = tagList(
+  #       modalButton("Cancel"),
+  #       actionButton("createExperimentTreatmentOk", "OK")
+  #     )
+  #   )
+  # }
+  # 
+  # observeEvent(input$createExperimentTreatment, {
+  #   showModal(createExperimentTreatmentModal())
+  # })
+  # 
+  # # . createExperimentTreatmentOk ----
+  # observeEvent(input$createExperimentTreatmentOk, {
+  #   rv$experimentTreatmentNew = rbind(
+  #     copy(rv$experimentTreatmentNew),
+  #     data.table(
+  #       treatment_id = rv$treatment[
+  #         name == input$createExperimentTreatmentSelected,
+  #         treatment_id
+  #       ],
+  #       weight = input$createExperimentTreatmentWeight
+  #     ) 
+  #   )
+  #   removeModal()
+  # })
+  # 
+  # . ecsTreatmentNextUI ----
+  # 
+  # output$ecsTreatmentNextUI = renderUI({
+  #   if(nrow(rv$experimentTreatmentNew) > 1){
+  #     return(
+  #       actionButton(
+  #         "ecsTreatmentNext",
+  #         "Next"
+  #       )
+  #     )
+  #   } else {
+  #     return(p("Add a treatment to continue"))
+  #   }
+  # })
   
-  # . impactSummary ----
-  output$impactSummary <- renderText(
-    measure_user_impact(rv$user_impact_data)
-  )
+  # Survey ----
   
-  # . impactPlot ----
-  output$impactPlot <- renderPlot(
-    plot_timeseries_impact(rv$timeseries_impact_data,
-                           input$selectedExperiment,
-                            experiment[name == input$selectedExperiment,
-                                       start_datetime],
-                           rv$impactVariableLoaded)
-  )
+  # (functions defined in experiment_creation_surver.R)
   
-  # . experimentTreatmentNew ----
-  output$experimentTreatmentNew <- renderDT(
-    format_experiment_treatment(
-      rv$experimentTreatmentNew,
-      rv$treatment
-    ),
-    options = list(paging = FALSE, searching = FALSE)
-  )
+  # . deliverability ----
   
-  # . experimentCreateUI ----
+  output$qD.1.ui <- ecs.qD.1.ui(input)
+  output$qD.2.ui <- ecs.qD.2.ui(input)
+  output$qD.3.ui <- ecs.qD.3.ui(input)
+  output$qD.3b.ui <- ecs.qD.3b.ui(input)
   
-  output$experimentCreateUI = renderUI({
-    if(nrow(rv$experimentTreatmentNew)){
-      return(
-        actionButton(
-          "createExperiment",
-          "Select Audience and Save Experiment"
-        )
-      )
-    } else {
-      return(p(""))
-    }
+  # . attrition ----
+  
+  output$qA.1.ui <- ecs.qA.1.ui(input)
+  output$qA.2.ui <- ecs.qA.2.ui(input)
+  output$qA.2b.ui <- ecs.qA.2b.ui(input)
+  
+  # . click through ----
+  
+  observeEvent(input$ecsBasicsNext, {
+    updateTabsetPanel(session, "create_experiment_tabset", "delivery")
+  })
+  observeEvent(input$ecsDeliveryNext, {
+    updateTabsetPanel(session, "create_experiment_tabset", "attrition")
+  })
+  observeEvent(input$ecsAttritionNext, {
+    updateTabsetPanel(session, "create_experiment_tabset", "contamination")
+  })
+  observeEvent(input$ecsContaminationNext, {
+    updateTabsetPanel(session, "create_experiment_tabset", "sizing")
+  })
+  observeEvent(input$ecsSizingNext, {
+    updateTabsetPanel(session, "create_experiment_tabset", "finish")
   })
   
-  # events ----
-  
-  # . experiment_rows_selected ----
-  output$experimentSelected = renderDT(
-    rv$experimentTreatment[
-      experiment_id == rv$experiment[
-        name == input$selectedExperiment,
-        experiment_id
-      ]
-    ]
-  )
-
-  # . createExperimentTreatmentModal ----
-  createExperimentTreatmentModal = function(){
-    modalDialog(
-      selectInput(
-        "createExperimentTreatmentSelected",
-        label = "Select Treatment",
-        choices = rv$treatment[, unique(name)]
-      ),
-      numericInput(
-        "createExperimentTreatmentWeight",
-        label = "Treatment Weight",
-        value = 1,
-        min = 0
-      ),
-      footer = tagList(
-        modalButton("Cancel"),
-        actionButton("createExperimentTreatmentOk", "OK")
-      )
-    )
-  }
-  
-  observeEvent(input$createExperimentTreatment, {
-    showModal(createExperimentTreatmentModal())
-  })
-  
-  # . createExperimentTreatmentOk ----
-  observeEvent(input$createExperimentTreatmentOk, {
-    rv$experimentTreatmentNew = rbind(
-      copy(rv$experimentTreatmentNew),
-      data.table(
-        treatment_id = rv$treatment[
-          name == input$createExperimentTreatmentSelected,
-          treatment_id
-        ],
-        weight = input$createExperimentTreatmentWeight
-      ) 
-    )
-    removeModal()
-  })
-  
-  # . createExperimentModal ----
-  createExperimentModal = function(){
-    modalDialog(
-      textInput(
-        "experimentName",
-        "Experiment Name: "
-      ),
-      selectInput(
-        "experimentAudienceNew",
-        "Select Audience",
-        choices = rv$audience[, unique(name)]
-      ),
-      dateRangeInput(
-        "experimentDateRange",
-        "Select Dates",
-        start = Sys.Date() + days(1), 
-        end = Sys.Date() + days(8), 
-        min = Sys.Date() + days(1)
-      ),
-      footer = tagList(
-        modalButton("Cancel"),
-        actionButton("createExperimentOk", "OK")
-      )
-    )  
-  }
-  observeEvent(input$createExperiment, {
-    showModal(createExperimentModal())
-  })
-  
-  # . createExperimentOk ----
-  
-  observeEvent(input$createExperimentOk, {
-    removeModal()
-    showModal(loadingModal("Creating Experiment ..."))
-    create_experiment(
-      name = input$experimentName,
-      audience_id = rv$audience[which(name == input$experimentAudienceNew),
-                                audience_id],
-      experiment_treatment = rv$experimentTreatmentNew,
-      start_datetime = input$experimentDateRange[1],
-      end_datetime = input$experimentDateRange[2]
-    )
-    rv$experiment = get_table("experiment")
-    rv$experimentTreatment = get_table("experiment_treatment")
-    rv$experimentTreatmentNew = data.table()
-    removeModal()
-    updateTabsetPanel(
-      session, "mainNav",
-      selected = "viewExperiment"
-    )
-  })
-  
+  # VIEW EXPERIMENT ----
   
   # . loadImpact ----
   
@@ -805,6 +578,96 @@ server <- function(input, output, session) {
     )
     removeModal()
   })
+  
+  # . experimentSummary ----
+  
+  output$experimentSummary <- renderText(
+    get_experiment_summary(input$selectedExperiment,
+                           experiment_audience = experiment_audience,
+                           experiment = rv$experiment,
+                           treatment = rv$treatment)
+  )
+  
+  # . impactSummary ----
+  output$impactSummary <- renderText(
+    measure_user_impact(rv$user_impact_data)
+  )
+  
+  # . impactPlot ----
+  output$impactPlot <- renderPlot(
+    plot_timeseries_impact(rv$timeseries_impact_data,
+                           input$selectedExperiment,
+                            experiment[name == input$selectedExperiment,
+                                       start_datetime],
+                           rv$impactVariableLoaded)
+  )
+  
+  
+  
+  # deprecate / revisit ----
+  
+  # . experiment_rows_selected (deprecate) ----
+  # output$experimentSelected = renderDT(
+  #   rv$experimentTreatment[
+  #     experiment_id == rv$experiment[
+  #       name == input$selectedExperiment,
+  #       experiment_id
+  #     ]
+  #   ]
+  # )
+  
+  # . createExperimentModal (revisit later) ----
+  # createExperimentModal = function(){
+  #   modalDialog(
+  #     textInput(
+  #       "experimentName",
+  #       "Experiment Name: "
+  #     ),
+  #     selectInput(
+  #       "experimentAudienceNew",
+  #       "Select Audience",
+  #       choices = rv$audience[, unique(name)]
+  #     ),
+  #     dateRangeInput(
+  #       "experimentDateRange",
+  #       "Select Dates",
+  #       start = Sys.Date() + days(1), 
+  #       end = Sys.Date() + days(8), 
+  #       min = Sys.Date() + days(1)
+  #     ),
+  #     footer = tagList(
+  #       modalButton("Cancel"),
+  #       actionButton("createExperimentOk", "OK")
+  #     )
+  #   )  
+  # }
+  
+  
+  # . createExperimentOk (revisit later) ----
+  
+  # observeEvent(input$createExperimentOk, {
+  #   removeModal()
+  #   showModal(loadingModal("Creating Experiment ..."))
+  #   create_experiment(
+  #     name = input$experimentName,
+  #     audience_id = rv$audience[which(name == input$experimentAudienceNew),
+  #                               audience_id],
+  #     experiment_treatment = rv$experimentTreatmentNew,
+  #     start_datetime = input$experimentDateRange[1],
+  #     end_datetime = input$experimentDateRange[2]
+  #   )
+  #   rv$experiment = get_table("experiment")
+  #   rv$experimentTreatment = get_table("experiment_treatment")
+  #   rv$experimentTreatmentNew = data.table(treatment_id = 1, weight = 1)
+  #   removeModal()
+  #   updateTabsetPanel(
+  #     session, "mainNav",
+  #     selected = "viewExperiment"
+  #   )
+  # })
+  
+  
+
   
 }
 
