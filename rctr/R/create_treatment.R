@@ -1,3 +1,38 @@
+# This file contains functions to support treatment creation
+
+#' Create Treatment Modal
+#'
+#' @import shiny DT
+#' @export
+#'
+#' @examples
+createTreatmentModal <- function() {
+  modalDialog(
+    textInput("treatmentName", "Treatment Name: "
+    ),
+    footer = tagList(
+      modalButton("Cancel"),
+      actionButton("createTreatmentOk", "OK")
+    )
+  )
+}
+
+createTreatmentObs = function(input){
+  observeEvent(input$createTreatment, {
+    showModal(createTreatmentModal())
+  })
+}
+
+createTreatmentObsOk = function(input, rv){
+  observeEvent(input$createTreatmentOk, {
+    removeModal()
+    showModal(loadingModal("Creating Treatment ..."))
+    create_treatment(name = input$treatmentName)
+    rv$treatment = get_table("treatment")
+    removeModal()
+  })
+}
+
 #' Create record in treatment table
 #'
 #' @param name name for new treatment

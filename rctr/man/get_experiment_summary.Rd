@@ -4,10 +4,19 @@
 \alias{get_experiment_summary}
 \title{Get summary of experiment}
 \usage{
-get_experiment_summary(experiment_name)
+get_experiment_summary(
+  experiment_name,
+  experiment_audience,
+  experiment,
+  treatment
+)
 }
 \arguments{
-\item{experiment_name}{}
+\item{experiment_name}{experiment name}
+
+\item{experiment_audience}{experiment audience from database}
+
+\item{experiment}{experiment from database}
 }
 \value{
 String with time live (or until start) and users assigned each treatment

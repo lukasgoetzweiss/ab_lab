@@ -7,13 +7,15 @@
 #' @import data.table
 #' @export
 apply_filter = function(user, filter_params){
+
   message("applying filter ", filter_params)
 
   fp = strsplit(filter_params, ":")[[1]]
   filter_type = fp[1]
 
   if(filter_type == "m"){
-    user[get(fp[2]) < fp[3] | get(fp[2]) > fp[4], incl := F]
+    user[get(fp[2]) < as.numeric(fp[3]) | get(fp[2]) > as.numeric(fp[4]),
+         incl := F]
 
   } else if(filter_type == "v"){
     user[!(get(fp[2]) %in% fp[-c(1,2)]), incl := F]

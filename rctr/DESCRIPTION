@@ -17,8 +17,10 @@ Imports:
     bigQueryR,
     bigrquery,
     data.table,
+    DT,
     ggplot2,
     glue,
     lubridate,
     scales,
-    stringr
+    stringr,
+    shiny

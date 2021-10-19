@@ -3,7 +3,12 @@
 
 # to do - make treatment and audience reactive values
 
-create_experiement_ui = function(){
+#' create_experiment_ui
+#'
+#' UI for experiment creation survey
+#'
+#' @export
+create_experiment_ui = function(){
   tabsetPanel(
     id = "create_experiment_tabset",
     tabPanel(
@@ -21,7 +26,7 @@ create_experiement_ui = function(){
       selectInput(
         "experimentAudienceNew",
         "Select Audience",
-        choices = audience[, unique(name)], 
+        choices = audience[, unique(name)],
         multiple = F
       ),
       selectInput(
@@ -30,17 +35,6 @@ create_experiement_ui = function(){
         choices = impact_variables
       ),
       actionButton("ecsBasicsNext", "Next")
-      # sidebarLayout(
-      #   sidebarPanel(
-      #     actionButton("createExperimentTreatment", "Add Treatment"), 
-      #     p(),
-      #     uiOutput("ecsTreatmentNextUI"),
-      #     width = 3
-      #   ),
-      #   mainPanel(
-      #     DTOutput("experimentTreatmentNew")
-      #   )
-      # )
     ),
     tabPanel(
       "Delivery",
@@ -62,7 +56,7 @@ create_experiement_ui = function(){
     tabPanel(
       "Contamination",
       value = "contamination",
-      
+
       # move to server
       radioButtons(
         "qC.1",
@@ -74,14 +68,14 @@ create_experiement_ui = function(){
       ),
       actionButton("ecsContaminationNext", "Next")
     ),
-    
+
     tabPanel(
       "Sizing",
       value = "sizing",
       p("add test sizing and timing"),
       actionButton("ecsSizingNext", "Next")
     ),
-    
+
     tabPanel(
       "Finish",
       value = "finish",
