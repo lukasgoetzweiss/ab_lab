@@ -195,7 +195,7 @@ server <- function(input, output, session) {
 
   observeEvent(
     input$createExperiment,
-    showModal(modalDialog(create_experiment_ui(),
+    showModal(modalDialog(create_experiment_ui(rv),
                           title = "Create Experiment",
                           size = "l"))
   )
@@ -203,21 +203,25 @@ server <- function(input, output, session) {
   # . dynamic questionnaire ----
 
   # delivery
-  output$qD.1.ui <- ecs.qD.1.ui(input)
-  output$qD.2.ui <- ecs.qD.2.ui(input)
-  output$qD.3.ui <- ecs.qD.3.ui(input)
-  output$qD.3b.ui <- ecs.qD.3b.ui(input)
+  output$q2.1.ui <- ecs.q2.1.ui(input)
+  output$q2.2.ui <- ecs.q2.2.ui(input)
 
   # attrition
-  output$qA.1.ui <- ecs.qA.1.ui(input)
-  output$qA.2.ui <- ecs.qA.2.ui(input)
-  output$qA.2b.ui <- ecs.qA.2b.ui(input)
+  output$q3.1.ui <- ecs.q3.1.ui(input)
+  output$q3.2.ui <- ecs.q3.2.ui(input)
+  output$q3.3.ui <- ecs.q3.3.ui(input)
+  output$q3.4.ui <- ecs.q3.4.ui(input)
+  output$q3.5.ui <- ecs.q3.5.ui(input)
 
-  # contamination
-  # (put code here)
+  # spillover
+  output$q4.1.ui <- ecs.q4.1.ui(input)
+  output$q4.2.ui <- ecs.q4.2.ui(input)
 
   # sizing
   # (put code here)
+
+  # finish
+  output$newExperimentDescription <- get_experiment_description(input)
 
   # . click through ----
 
@@ -228,13 +232,28 @@ server <- function(input, output, session) {
     updateTabsetPanel(session, "create_experiment_tabset", "attrition")
   })
   observeEvent(input$ecsAttritionNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "contamination")
+    updateTabsetPanel(session, "create_experiment_tabset", "spillover")
   })
-  observeEvent(input$ecsContaminationNext, {
+  observeEvent(input$ecsSpilloverNext, {
     updateTabsetPanel(session, "create_experiment_tabset", "sizing")
   })
   observeEvent(input$ecsSizingNext, {
     updateTabsetPanel(session, "create_experiment_tabset", "finish")
+  })
+  observeEvent(input$newExperimentSave, {
+    removeModal()
+    showModal(loadingModal("Creating experiment ..."))
+    create_experiment(
+      input,
+      audience_id = rv$audience[
+        name == input$experimentAudienceNew, audience_id
+      ],
+      treatment_id = rv$treatment[
+        name == input$createExperimentTreatmentSelected, treatment_id
+      ]
+    )
+    removeModal()
+    showModal(modalDialog(p("Experiment created"), easyClose = T))
   })
 
   # VIEW EXPERIMENT ----

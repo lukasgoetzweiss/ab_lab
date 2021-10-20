@@ -9,13 +9,19 @@
 -- experiment
 CREATE OR REPLACE TABLE
 example_act.experiment (
-    experiment_id             INT64
-  , audience_id               INT64
-  , name                      STRING
-  , start_datetime            TIMESTAMP
-  , end_datetime              TIMESTAMP
-  , create_datetime           TIMESTAMP
-  , modified_datetime         TIMESTAMP
+    experiment_id INT64
+  , name STRING
+  , audience_id INT64
+  , primary_impact_variable STRING
+  , delivery_variable STRING
+  , attrition_variable STRING
+  , attrition_rate_prior FLOAT64
+  , attrition_independence_prior STRING
+  , spillover_prior STRING
+  , start_datetime TIMESTAMP
+  , end_datetime TIMESTAMP
+  , create_datetime TIMESTAMP
+  , modify_datetime TIMESTAMP
 );
 
 -- treatment
@@ -28,7 +34,7 @@ example_act.treatment (
 
 -- experiment_treatment
 CREATE OR REPLACE TABLE
-example_act.experiment_treatment ( 
+example_act.experiment_treatment (
     experiment_treatment_id   INT64
   , experiment_id             INT64
   , treatment_id              INT64
