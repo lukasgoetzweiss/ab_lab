@@ -6,7 +6,7 @@
 #' @export
 #'
 #' @examples
-experiment_ui = function(){
+experiment_ui = function(experiment, impact_variables){
   tabPanel(
     "Experiment", value = "experiment",
     fluidRow(

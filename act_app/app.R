@@ -17,17 +17,21 @@ library(scales)
 
 devtools::load_all("../rctr/")
 
+set_env("~/exampleCorp/ec/context.yml")
+ddl.check()
+
 #### global data ----
 
 # query data from rctr schema
-# treatment = get_table("treatment")
-# audience = get_table("audience")
-# audience_filter = get_table("audience_filter")
-# experiment = get_table("experiment")
-# experiment_treatment = get_table("experiment_treatment")
-# experiment_audience = get_table("experiment_audience")
-#
-# user = get_table("user", dataset = "example_data")
+treatment = get_table("treatment")
+audience = get_table("audience")
+audience_filter = get_table("audience_filter")
+experiment = get_table("experiment")
+experiment_treatment = get_table("experiment_treatment")
+experiment_audience = get_table("experiment_audience")
+
+user = get_table(Sys.getenv("segment_table"))
+impact_variables = c("(dummy variable)")
 # impact_variables = setdiff(
 #   names(get_table("user_data", dataset = "example_data", limit = 1)),
 #   c("user_id", "timestamp")
@@ -51,7 +55,7 @@ ui = navbarPage(
   tags$head(tags$style(HTML('* {font-family: "Courier"};'))),
 
   # experiment
-  experiment_ui(),
+  experiment_ui(experiment, impact_variables),
 
   # treatment
   treatment_ui(),

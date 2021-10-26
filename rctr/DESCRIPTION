@@ -23,4 +23,5 @@ Imports:
     lubridate,
     scales,
     stringr,
-    shiny
+    shiny,
+    yaml

@@ -19,6 +19,7 @@ push_data = function(tableId, upload_data,
                      dataSet = Sys.getenv("bq_dataSet"),
                      projectID = Sys.getenv("bq_projectID"),
                      writeDisposition = "WRITE_APPEND",
+                     create = "CREATE_NEVER",
                      schema = NULL){
   bigQueryR::bqr_upload_data(
     projectId = projectID,
@@ -27,6 +28,7 @@ push_data = function(tableId, upload_data,
     upload_data = upload_data,
     writeDisposition = writeDisposition,
     schema = schema,
+    create = create,
     autodetect = F
   )
   return(NULL)
