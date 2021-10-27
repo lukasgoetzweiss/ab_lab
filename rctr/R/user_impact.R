@@ -8,28 +8,31 @@
 #' @return user_impact_data
 #' @import data.table
 #' @export
-get_user_impact_data = function(dataset = Sys.getenv("bq_dataSet"),
-                                experiment_id,
+get_user_impact_data = function(experiment_id,
                                 impact_variable,
                                 pre_period_days = 14){
 
+  ts_timestamp = glue(
+    "cast(ts.{Sys.getenv('timeseries_timestamp')} as TIMESTAMP)"
+  )
+
   return(pull_data(glue(
-    " select ud.user_id
+    " select ts.{Sys.getenv('unit_pk')}   as unit_id
           ,  ea.treatment_id
-          ,  case when ud.timestamp > e.start_datetime
+          ,  case when {ts_timestamp} > e.start_datetime
                   then 'post'
                   else 'pre' end          as period
           ,  t.name                       as treatment
-          ,  avg(ud.{impact_variable})    as impact_variable
-        from example_data.user_data ud
-        join {dataset}.experiment_audience ea
-          on ea.user_id = ud.user_id
+          ,  avg(ts.{impact_variable})    as impact_variable
+        from {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
+        join {Sys.getenv('bq_dataSet')}.experiment_audience ea
+          on ea.unit_id = ts.{Sys.getenv('unit_pk')}
          and ea.experiment_id = {experiment_id}
-        join {dataset}.experiment e
+        join {Sys.getenv('bq_dataSet')}.experiment e
           on e.experiment_id = ea.experiment_id
-         and ud.timestamp > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
-         and ud.timestamp < e.end_datetime
-        join {dataset}.treatment t
+         #and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
+         and {ts_timestamp} < e.end_datetime
+        join {Sys.getenv('bq_dataSet')}.treatment t
           on t.treatment_id = ea.treatment_id
        group by 1,2,3,4"
   )))

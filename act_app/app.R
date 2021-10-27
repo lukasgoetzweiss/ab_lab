@@ -18,7 +18,7 @@ library(scales)
 devtools::load_all("../rctr/")
 
 set_env("~/exampleCorp/ec/context.yml")
-ddl.check()
+schema_tbls = ddl.check()
 
 #### global data ----
 
@@ -31,11 +31,15 @@ experiment_treatment = get_table("experiment_treatment")
 experiment_audience = get_table("experiment_audience")
 
 user = get_table(Sys.getenv("segment_table"))
-impact_variables = c("(dummy variable)")
-# impact_variables = setdiff(
-#   names(get_table("user_data", dataset = "example_data", limit = 1)),
-#   c("user_id", "timestamp")
-# )
+
+if(Sys.getenv("timeseries_table") %in% schema_tbls){
+  impact_variables = setdiff(
+    names(get_table(Sys.getenv("timeseries_table"), limit = 1)),
+    c(Sys.getenv("unit_pk"), Sys.getenv("timeseries_timestamp"))
+  )
+} else {
+  impact_variables = c("(set up timeseries table)")
+}
 
 # prepare
 metadata = create_user_metadata(user)
@@ -199,27 +203,29 @@ server <- function(input, output, session) {
 
   observeEvent(
     input$createExperiment,
-    showModal(modalDialog(create_experiment_ui(rv),
+    showModal(modalDialog(create_experiment_ui(rv, impact_variables),
                           title = "Create Experiment",
                           size = "l"))
   )
 
   # . dynamic questionnaire ----
 
+  output$newExperimentAttritionRateUI = newExperimentAttritionRateUI.ui(input)
+
   # delivery
-  output$q2.1.ui <- ecs.q2.1.ui(input)
-  output$q2.2.ui <- ecs.q2.2.ui(input)
-
-  # attrition
-  output$q3.1.ui <- ecs.q3.1.ui(input)
-  output$q3.2.ui <- ecs.q3.2.ui(input)
-  output$q3.3.ui <- ecs.q3.3.ui(input)
-  output$q3.4.ui <- ecs.q3.4.ui(input)
-  output$q3.5.ui <- ecs.q3.5.ui(input)
-
-  # spillover
-  output$q4.1.ui <- ecs.q4.1.ui(input)
-  output$q4.2.ui <- ecs.q4.2.ui(input)
+  # output$q2.1.ui <- ecs.q2.1.ui(input)
+  # output$q2.2.ui <- ecs.q2.2.ui(input)
+  #
+  # # attrition
+  # output$q3.1.ui <- ecs.q3.1.ui(input)
+  # output$q3.2.ui <- ecs.q3.2.ui(input)
+  # output$q3.3.ui <- ecs.q3.3.ui(input)
+  # output$q3.4.ui <- ecs.q3.4.ui(input)
+  # output$q3.5.ui <- ecs.q3.5.ui(input)
+  #
+  # # spillover
+  # output$q4.1.ui <- ecs.q4.1.ui(input)
+  # output$q4.2.ui <- ecs.q4.2.ui(input)
 
   # sizing
   # (put code here)
@@ -230,17 +236,17 @@ server <- function(input, output, session) {
   # . click through ----
 
   observeEvent(input$ecsBasicsNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "delivery")
-  })
-  observeEvent(input$ecsDeliveryNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "attrition")
-  })
-  observeEvent(input$ecsAttritionNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "spillover")
-  })
-  observeEvent(input$ecsSpilloverNext, {
     updateTabsetPanel(session, "create_experiment_tabset", "sizing")
   })
+  # observeEvent(input$ecsDeliveryNext, {
+  #   updateTabsetPanel(session, "create_experiment_tabset", "attrition")
+  # })
+  # observeEvent(input$ecsAttritionNext, {
+  #   updateTabsetPanel(session, "create_experiment_tabset", "spillover")
+  # })
+  # observeEvent(input$ecsSpilloverNext, {
+  #   updateTabsetPanel(session, "create_experiment_tabset", "sizing")
+  # })
   observeEvent(input$ecsSizingNext, {
     updateTabsetPanel(session, "create_experiment_tabset", "finish")
   })
@@ -250,10 +256,10 @@ server <- function(input, output, session) {
     create_experiment(
       input,
       audience_id = rv$audience[
-        name == input$experimentAudienceNew, audience_id
+        name == input$newExperimentAudience, audience_id
       ],
       treatment_id = rv$treatment[
-        name == input$createExperimentTreatmentSelected, treatment_id
+        name == input$newExperimentTreatment, treatment_id
       ]
     )
     removeModal()
@@ -307,144 +313,6 @@ server <- function(input, output, session) {
                                        start_datetime],
                            rv$impactVariableLoaded)
   )
-
-
-
-  # deprecate / revisit ----
-
-  # . experiment_rows_selected (deprecate) ----
-  # output$experimentSelected = renderDT(
-  #   rv$experimentTreatment[
-  #     experiment_id == rv$experiment[
-  #       name == input$selectedExperiment,
-  #       experiment_id
-  #     ]
-  #   ]
-  # )
-
-  # . createExperimentModal (revisit later) ----
-  # createExperimentModal = function(){
-  #   modalDialog(
-  #     textInput(
-  #       "experimentName",
-  #       "Experiment Name: "
-  #     ),
-  #     selectInput(
-  #       "experimentAudienceNew",
-  #       "Select Audience",
-  #       choices = rv$audience[, unique(name)]
-  #     ),
-  #     dateRangeInput(
-  #       "experimentDateRange",
-  #       "Select Dates",
-  #       start = Sys.Date() + days(1),
-  #       end = Sys.Date() + days(8),
-  #       min = Sys.Date() + days(1)
-  #     ),
-  #     footer = tagList(
-  #       modalButton("Cancel"),
-  #       actionButton("createExperimentOk", "OK")
-  #     )
-  #   )
-  # }
-
-
-  # . createExperimentOk (revisit later) ----
-
-  # observeEvent(input$createExperimentOk, {
-  #   removeModal()
-  #   showModal(loadingModal("Creating Experiment ..."))
-  #   create_experiment(
-  #     name = input$experimentName,
-  #     audience_id = rv$audience[which(name == input$experimentAudienceNew),
-  #                               audience_id],
-  #     experiment_treatment = rv$experimentTreatmentNew,
-  #     start_datetime = input$experimentDateRange[1],
-  #     end_datetime = input$experimentDateRange[2]
-  #   )
-  #   rv$experiment = get_table("experiment")
-  #   rv$experimentTreatment = get_table("experiment_treatment")
-  #   rv$experimentTreatmentNew = data.table(treatment_id = 1, weight = 1)
-  #   removeModal()
-  #   updateTabsetPanel(
-  #     session, "mainNav",
-  #     selected = "viewExperiment"
-  #   )
-  # })
-  #
-  # deprecate...
-  # output$experiment <- renderDT(rv$experiment[, .(name)], selection = 'single')
-  #
-  # . add treatments (deprecate) ----
-  # output$experiment_treatment <- renderDT(rv$experiment_treatment, selection = 'single')
-  #
-  # # . experimentTreatmentNew ----
-  # output$experimentTreatmentNew <- renderDT(
-  #   format_experiment_treatment(
-  #     rv$experimentTreatmentNew,
-  #     rv$treatment
-  #   ),
-  #   options = list(paging = FALSE, searching = FALSE)
-  # )
-  #
-  # # . createExperimentTreatmentModal ----
-  # createExperimentTreatmentModal = function(){
-  #   modalDialog(
-  #     selectInput(
-  #       "createExperimentTreatmentSelected",
-  #       label = "Select Treatment",
-  #       choices = setdiff(rv$treatment[, unique(name)], "Control")
-  #     ),
-  #     numericInput(
-  #       "createExperimentTreatmentWeight",
-  #       label = "Treatment Weight",
-  #       value = 1,
-  #       min = 0
-  #     ),
-  #     footer = tagList(
-  #       modalButton("Cancel"),
-  #       actionButton("createExperimentTreatmentOk", "OK")
-  #     )
-  #   )
-  # }
-  #
-  # observeEvent(input$createExperimentTreatment, {
-  #   showModal(createExperimentTreatmentModal())
-  # })
-  #
-  # # . createExperimentTreatmentOk ----
-  # observeEvent(input$createExperimentTreatmentOk, {
-  #   rv$experimentTreatmentNew = rbind(
-  #     copy(rv$experimentTreatmentNew),
-  #     data.table(
-  #       treatment_id = rv$treatment[
-  #         name == input$createExperimentTreatmentSelected,
-  #         treatment_id
-  #       ],
-  #       weight = input$createExperimentTreatmentWeight
-  #     )
-  #   )
-  #   removeModal()
-  # })
-  #
-  # . ecsTreatmentNextUI ----
-  #
-  # output$ecsTreatmentNextUI = renderUI({
-  #   if(nrow(rv$experimentTreatmentNew) > 1){
-  #     return(
-  #       actionButton(
-  #         "ecsTreatmentNext",
-  #         "Next"
-  #       )
-  #     )
-  #   } else {
-  #     return(p("Add a treatment to continue"))
-  #   }
-  # })
-
-  # holds treatments while creating new experiment
-  # initialize with control and a weighting of 1
-  # rv$experimentTreatmentNew = data.table(treatment_id = 1, weight = 1)
 
 
 

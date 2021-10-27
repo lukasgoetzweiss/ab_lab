@@ -2,22 +2,29 @@
 # overhead ----
 
 ddl.built_in_tables = function(){
-  return(c(
-    "treatment",
-    "experiment",
-    "experiment_treatment",
-    "audience",
-    "audience_filter",
-    "experiment_audience"
-  ))
+  tbls = c(
+      "treatment",
+      "experiment",
+      "experiment_treatment",
+      "audience",
+      "audience_filter",
+      "experiment_audience"
+  )
+  if(Sys.getenv("delivery_table") == "treatment_delivery"){
+    tbls = c(tbls, "treatment_delivery")
+  }
+  return(tbls)
 }
 
 ddl.user_defined_tables = function(){
-  return(c(
+  tbls = c(
     Sys.getenv("segment_table"),
-    Sys.getenv("delivery_table"),
     Sys.getenv("timeseries_table")
-  ))
+  )
+  if(Sys.getenv("delivery_table") != "treatment_delivery"){
+    tbls = c(tbls, Sys.getenv("delivery_table"))
+  }
+  return(tbls)
 }
 
 ddl.check = function(hard_reset = F){
@@ -34,8 +41,6 @@ ddl.check = function(hard_reset = F){
 
     if(i_tbl %in% schema_tbls[, table_name]){
 
-
-
       if(hard_reset == T){
         message(Sys.time(), ": removing ", i_tbl)
         bigQueryR::bqr_delete_table(Sys.getenv("bq_projectID"),
@@ -50,6 +55,8 @@ ddl.check = function(hard_reset = F){
       message(Sys.time(), ": did not found ", built_in_tables[i],
               " creating now ...")
       get(paste("ddl.", i_tbl, sep = ""))()
+      # add table to list of tables in schema
+      schema_tbls = c(schema_tbls, i_tbl)
     }
 
   }
@@ -64,6 +71,8 @@ ddl.check = function(hard_reset = F){
       warning(paste("could not find user-defined table:", i_tbl))
     }
   }
+
+  return(schema_tbls[, table_name])
 
 }
 
@@ -120,11 +129,10 @@ ddl.experiment = function(){
       name = "template",
       audience_id = as.integer(0),
       primary_impact_variable = "template",
-      delivery_variable = "template",
-      attrition_variable = "template",
+      delivery_treatment_prior = 0.5,
+      delivery_control_prior = 0.5,
+      attrition_mode_prior = "template",
       attrition_rate_prior = 0.5,
-      attrition_independence_prior = "template",
-      spillover_prior = "template",
       start_datetime = Sys.time(),
       end_datetime = Sys.time(),
       create_datetime = Sys.time(),
@@ -239,6 +247,30 @@ ddl.experiment_audience = function(){
       create_datetime = Sys.time(),
       modified_datetime = Sys.time()
     )
+  )
+
+}
+
+ddl.treatment_delivery = function(){
+
+  if(Sys.getenv("unit_pk") == ""){
+    stop("environment variable unit_pk note defined")
+  }
+
+  template_data = data.table(
+    treatment_delivery_id = as.integer(0),
+    unit_id = as.integer(0),
+    treatment_id = as.integer(0),
+    delivery_timestamp = Sys.time()
+  )
+
+  setnames(template_data, "unit_id", Sys.getenv("unit_pk"))
+
+  bigQueryR::bqr_create_table(
+    projectId = Sys.getenv("bq_projectID"),
+    datasetId = Sys.getenv("bq_dataSet"),
+    tableId = "treatment_delivery",
+    template_data = template_data
   )
 
 }

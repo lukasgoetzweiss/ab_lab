@@ -9,15 +9,15 @@ input_to_experiment_record = function(input){
 
   # check input fields
   required_fields = c(
-    "experimentName",
-    "createExperimentTreatmentSelected",
-    "experimentAudienceNew",
-    "experimentVariableNew",
-    "q2.1",
-    "q3.1",
-    "q4.1",
+    "newExperimentName",
+    "newExperimentTreatment",
+    "newExperimentAudience",
+    "newExperimentVariable",
+    "newExperimentDeliveryTreatment",
+    "newExperimentDeliveryControl",
+    "newExperimentAttritionMode",
     "newExperimentControlPercentage",
-    "experimentDateRange"
+    "newExperimentDateRange"
   )
 
   missing_fields = setdiff(required_fields, names(input))
@@ -26,25 +26,22 @@ input_to_experiment_record = function(input){
   }
 
   return(data.table(
-    name = input$experimentName,
-    audience = input$experimentAudienceNew,
-    primary_impact_variable = input$experimentVariableNew,
+    name = input$newExperimentName,
+    audience = input$newExperimentAudience,
+    primary_impact_variable = input$newExperimentVariable,
 
-    delivery_variable = ifelse(input$q2.1 == not_collected_str,
-                               NA, input$q2.1),
+    delivery_treatment_prior = as.numeric(input$newExperimentDeliveryTreatment),
+    delivery_control_prior = as.numeric(input$newExperimentDeliveryControl),
 
-    attrition_variable = ifelse(input$q3.1 == "Yes", input$q3.2, NA_character_),
-    attrition_rate_prior = ifelse(
-      is.null(input$q3.3), NA_real_, input$q3.3
-    ),
-    attrition_independence_prior = ifelse(
-      is.null(input$q3.4), NA_character_, input$q3.4
-    ),
+    attrition_mode_prior = input$newExperimentAttritionMode,
+    attrition_rate_prior = ifelse(is.null(input$newExperimentAttritionRate),
+                                  NA_real_,
+                                  as.numeric(
+                                    is.null(input$newExperimentAttritionRate)
+                                  )),
 
-    spillover_prior = input$q4.1,
-
-    start_datetime = as.POSIXct(input$experimentDateRange[1]),
-    end_datetime = as.POSIXct(input$experimentDateRange[2]),
+    start_datetime = as.POSIXct(input$newExperimentDateRange[1]),
+    end_datetime = as.POSIXct(input$newExperimentDateRange[2]),
     create_datetime = Sys.time(),
     modify_datetime = Sys.time()
   ))

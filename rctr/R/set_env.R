@@ -13,6 +13,19 @@ set_env = function(config_path = "~/rctr.yml"){
                paste(missing_fields, collapse = ", ")))
   }
 
+  if(xor("delivery_table" %in% names(config),
+         "delivery_timestamp" %in% names(config))){
+    stop(paste(
+      "Either both delivery_table and delivery_timestamp should be defined or",
+      "neither should be defined"
+    ))
+  }
+
+  if(!("delivery_table" %in% names(config))){
+    config$delivery_table = "treatment_delivery"
+    config$delivery_timestamp = "delivery_timestamp"
+  }
+
   Sys.setenv(bq_projectID = config$bq_project)
   Sys.setenv(bq_dataSet = config$bq_dataset)
 

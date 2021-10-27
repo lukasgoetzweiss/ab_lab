@@ -5,28 +5,27 @@
 
 # set env ----
 
-source("~/Documents/Career/ab_lab/act_lib.R")
-
-dataset = Sys.getenv("bq_dataSet")
+devtools::load_all()
+set_env("~/exampleCorp/ec/context.yml")
 
 # pull data ----
 
 # list of filter conditions for each experiment's audience
 experiment_audience_filter = pull_data(glue(
-  "select * 
-    from {dataset}.experiment e
-    join {dataset}.audience_filter a
+  "select *
+    from {Sys.getenv('bq_dataSet')}.experiment e
+    join {Sys.getenv('bq_dataSet')}.audience_filter a
       on e.audience_id = a.audience_id
-   --where e.start_datetime > current_timestamp() 
+   --where e.start_datetime > current_timestamp()
   --   and e.end_datetime < current_timestamp()"
 ))
 
 # each experiment's treatment distribution
-experiment_treatment = get_experiment_treatment()
+experiment_treatment = get_table("experiment_treatment")
 
 # experiments that have already had their audience stamped
 live_experiments = pull_data(glue(
-  "select experiment_id from {dataset}.experiment_audience"
+  "select experiment_id from {Sys.getenv('bq_dataSet')}.experiment_audience"
 ))
 
 # stamp experiment audience ----
@@ -39,57 +38,57 @@ experiment_sql = experiment_audience_filter[
 message(now(), ": stamping experiment audience")
 # for each experiment...
 for(i in 1:nrow(experiment_sql)){
-  
+
   message(
     now(), ": ", i, " / ", nrow(experiment_sql), ": ", experiment_sql[i, name]
   )
-  
+
   # check if experiment has already had its audience stamped
   if(experiment_sql[i, experiment_id] %in% live_experiments[, experiment_id]){
     message("experiment audience already created")
   } else {
-    
+
     # pull eligible users
     experiment_users = pull_data(glue(
-      "select user_id
-         from example_data.user
+      "select {Sys.getenv('unit_pk')} as unit_id
+         from {Sys.getenv('bq_dataSet')}.{Sys.getenv('segment_table')}
         where {experiment_sql[i, sql]}"
     ))
-    
+
     n_users = experiment_users[, .N]
-    
+
     # get experiment treatment distritution
     i_treatment = experiment_treatment[
       experiment_id == experiment_sql[i, experiment_id]
     ]
-    
+
     i_probs = cumsum(i_treatment[, sample_weight / sum(sample_weight)])
-    
+
     # create random draw for each user
     user_ru = runif(n_users, 0, 1)
-    
+
     # split users based on random draw
     user_treatment = as.numeric(as.character(cut(
-      user_ru, 
-      c(0, quantile(user_ru, probs = i_probs)), 
+      user_ru,
+      c(0, quantile(user_ru, probs = i_probs)),
       labels = i_treatment[, treatment_id]
     )))
-    
+
     # prepare experiment_audience_id
     experiment_audience_id = pull_data(glue(
       "select max(experiment_audience_id)
-         from {dataset}.experiment_audience"
+         from {Sys.getenv('bq_dataSet')}.experiment_audience"
     ))[, f0_]
     if(is.na(experiment_audience_id)){ experiment_audience_id = 0}
     experiment_audience_id = experiment_audience_id + (1:n_users)
-    
+
     # push data to experiment_audience
-    load_data(
+    push_data(
       "experiment_audience",
       experiment_users[, .(
         experiment_audience_id = as.integer(experiment_audience_id),
         experiment_id = as.integer(experiment_sql[i, experiment_id]),
-        user_id = as.integer(user_id),
+        unit_id = as.integer(unit_id),
         treatment_id = as.integer(user_treatment),
         active_fg = 'Y',
         create_datetime = now(),

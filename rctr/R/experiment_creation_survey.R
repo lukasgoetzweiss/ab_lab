@@ -9,75 +9,99 @@
 #' UI for experiment creation survey
 #'
 #' @export
-create_experiment_ui = function(rv){
+create_experiment_ui = function(rv, impact_variables){
   tabsetPanel(
     id = "create_experiment_tabset",
     tabPanel(
       "Basics",
       value = "basics",
       textInput(
-        "experimentName",
+        "newExperimentName",
         "Experiment Name: "
       ),
       selectInput(
-        "createExperimentTreatmentSelected",
+        "newExperimentTreatment",
         label = "Select Treatment",
         choices = setdiff(rv$treatment[, unique(name)], "Control")
       ),
       selectInput(
-        "experimentAudienceNew",
+        "newExperimentAudience",
         "Select Audience",
         choices = rv$audience[, unique(name)],
         multiple = F
       ),
       selectInput(
-        "experimentVariableNew",
+        "newExperimentVariable",
         "Select Main Impact Variable",
         choices = impact_variables
       ),
       actionButton("ecsBasicsNext", "Next")
     ),
-    tabPanel(
-      "Delivery",
-      value = "delivery",
-      uiOutput("q2.1.ui"),
-      uiOutput("q2.2.ui"),
-      actionButton("ecsDeliveryNext", "Next")
-    ),
-    tabPanel(
-      "Attrition",
-      value = "attrition",
-      uiOutput("q3.1.ui"),
-      uiOutput("q3.2.ui"),
-      uiOutput("q3.3.ui"),
-      uiOutput("q3.4.ui"),
-      uiOutput("q3.5.ui"),
-      actionButton("ecsAttritionNext", "Next")
-    ),
-    tabPanel(
-      "Spillover",
-      uiOutput("q4.1.ui"),
-      uiOutput("q4.2.ui"),
-      value = "spillover",
-      actionButton("ecsSpilloverNext", "Next")
-    ),
+    # tabPanel(
+    #   "Delivery",
+    #   value = "delivery",
+    #   uiOutput("q2.1.ui"),
+    #   uiOutput("q2.2.ui"),
+    #   actionButton("ecsDeliveryNext", "Next")
+    # ),
+    # tabPanel(
+    #   "Attrition",
+    #   value = "attrition",
+    #   uiOutput("q3.1.ui"),
+    #   uiOutput("q3.2.ui"),
+    #   uiOutput("q3.3.ui"),
+    #   uiOutput("q3.4.ui"),
+    #   uiOutput("q3.5.ui"),
+    #   actionButton("ecsAttritionNext", "Next")
+    # ),
+    # tabPanel(
+    #   "Spillover",
+    #   uiOutput("q4.1.ui"),
+    #   uiOutput("q4.2.ui"),
+    #   value = "spillover",
+    #   actionButton("ecsSpilloverNext", "Next")
+    # ),
 
     tabPanel(
       "Sizing",
       value = "sizing",
-      dateRangeInput(
-        "experimentDateRange",
-        "Select dates",
-        start = Sys.Date() + days(1),
-        end = Sys.Date() + days(8),
-        min = Sys.Date() + days(1)
+      sidebarLayout(
+        sidebarPanel(
+          dateRangeInput(
+            "newExperimentDateRange",
+            "Select dates",
+            start = Sys.Date() + days(1),
+            end = Sys.Date() + days(8),
+            min = Sys.Date() + days(1)
+          ),
+          numericInput(
+            "newExperimentControlPercentage",
+            "Select control percentage",
+            min = 0, max = 100, step = 1, value = 50
+          ),
+          numericInput(
+            "newExperimentDeliveryTreatment",
+            "Delivery percentage prior, treatment:",
+            min = 0, max = 100, step = 1, value = 100
+          ),
+          numericInput(
+            "newExperimentDeliveryControl",
+            "Delivery percentage prior, control:",
+            min = 0, max = 100, step = 1, value = 0
+          ),
+          radioButtons(
+            "newExperimentAttritionMode",
+            "Attrition",
+            choices = c("None", "Independent"), selected = "None",
+            inline = T
+          ),
+          uiOutput("newExperimentAttritionRateUI"),
+        ),
+        mainPanel(
+          p("plots go here")
+        )
       ),
-      numericInput(
-        "newExperimentControlPercentage",
-        "Select control percentage",
-        min = 0, max = 100, step = 1, value = 50
-      ),
-      p("(add more tools for test sizing and timing)"),
+
       actionButton("ecsSizingNext", "Next")
     ),
 
@@ -101,7 +125,7 @@ ecs.q2.1.ui = function(input){
     selectInput(
       "q2.1",
       label = glue(paste("What variable indicates that <unit> has successfully",
-                         " received {input$createExperimentTreatmentSelected}?")
+                         " received {input$newExperimentTreatment}?")
         ),
       choices = c("dummy option 1", "dummy option 2", not_collected_str),
       selected = "dummy option 1",
@@ -114,8 +138,8 @@ ecs.q2.2.ui = function(input){renderUI({
   if(length(input$q2.1) && input$q2.1 == not_collected_str){
     return(p(paste(glue(
       "Will not account for delivery of ",
-      "{input$createExperimentTreatmentSelected} and will instead assume all ",
-      "assigned <units> receive {input$createExperimentTreatmentSelected}."
+      "{input$newExperimentTreatment} and will instead assume all ",
+      "assigned <units> receive {input$newExperimentTreatment}."
     ))))
   } else {
     return(p(""))
@@ -124,13 +148,28 @@ ecs.q2.2.ui = function(input){renderUI({
 
 # . Attrition ----
 
+newExperimentAttritionRateUI.ui = function(input){renderUI(
+  if(length(input$newExperimentAttritonMode)
+     && input$newExperimentAttritonMode == "Independent"){
+    return(
+      numericInput(
+        "newExperimentAttritionRate",
+        "Expected attrition percentage",
+        min = 0, max = 100, step = 1, value = 1
+      )
+    )
+  } else {
+    return(p(""))
+  }
+)}
+
 ecs.q3.1.ui = function(input){renderUI(
   return(
     radioButtons(
       "q3.1",
       label = glue(paste(
         "Are there any <unit>s that will need to be removed from the study?",
-        "For instance, because {input$experimentVariableNew} will not be known?"
+        "For instance, because {input$newExperimentVariable} will not be known?"
       )),
       choices = c("Yes", "No"),
       selected = "No",
@@ -178,7 +217,7 @@ ecs.q3.4.ui = function(input){renderUI(
     return(radioButtons(
       "q3.4",
       glue(paste(
-        "Do we expect {input$createExperimentTreatmentSelected} to impact who",
+        "Do we expect {input$newExperimentTreatment} to impact who",
         "will be removed from the study, either directly or indirectly? (note",
         "that the treatment could impact the number of <units> that leave the",
         "study, or just which <units> leave the study)"
@@ -218,8 +257,8 @@ ecs.q4.1.ui = function(input){renderUI(
     "q4.1",
     label = glue(paste(
       "Is it possible that one <unit> receiving ",
-      "{input$createExperimentTreatmentSelected} could impact",
-      "{input$experimentVariableNew} of other <unit>s?"
+      "{input$newExperimentTreatment} could impact",
+      "{input$newExperimentVariable} of other <unit>s?"
     )),
     choices = c("Yes", "No"),
     selected = "No",
