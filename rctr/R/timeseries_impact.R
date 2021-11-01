@@ -48,7 +48,7 @@ plot_timeseries_impact = function(timeseries_impact_data,
                                   experiment_name,
                                   experiment_start,
                                   impact_variable,
-                                  colors = c("#F18E7E", "#69AEDB", "grey10")){
+                                  colors = rctr_colors()){
 
   if(is.null(timeseries_impact_data)){
     return(
