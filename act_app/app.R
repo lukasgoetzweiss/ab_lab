@@ -212,6 +212,43 @@ server <- function(input, output, session) {
 
   output$newExperimentAttritionRateUI = newExperimentAttritionRateUI.ui(input)
 
+  observeEvent(input$loadSizingData,{
+    shinyjs::disable("loadSizingData")
+    shinyjs::show("text1")
+    rv$sizingData = load_sizing_data(
+      input$newExperimentVariable,
+      today() - days(1),
+      today() - days(1 + diff(input$newExperimentDateRange))
+    )
+    rv$newExperimentAudienceSize = get_audience_size(
+      audience_filter[
+        audience_id == audience[
+          name == input$newExperimentAudience,
+          audience_id
+        ]
+      ]
+    )
+    shinyjs::enable("loadSizingData")
+    shinyjs::hide("text1")
+    }
+  )
+
+  output$newExperimentMDE = renderText(paste(
+    "Pre period average ", input$newExperimentVariable, ": ",
+    signif(rv$sizingData[, mu], digits = 6), "\n",
+    "Minimum detectable effect: ",
+    signif(
+      compute_mdr(N = rv$newExperimentAudienceSize,
+                  mu = rv$sizingData[, mu],
+                  sigma = rv$sizingData[, sigma],
+                  alpha = 0.05, power = 0.8,
+                  plot = F)$delta,
+      digits = 6
+     ), "\n",
+    "(N = ", rv$newExperimentAudienceSize,
+    " stddev = ", signif(rv$sizingData[, sigma], 6), ")"
+  , sep = ""))
+
   # delivery
   # output$q2.1.ui <- ecs.q2.1.ui(input)
   # output$q2.2.ui <- ecs.q2.2.ui(input)
