@@ -36,21 +36,7 @@ experiment_ui = function(experiment, impact_variables){
              p("Results"),
              verbatimTextOutput("impactSummary")),
       column(7,
-             tabsetPanel(
-               tabPanel(
-                 "Time Series",
-                 plotOutput("timeseriesPlot")
-               ),
-               tabPanel(
-                 "Population",
-                 plotOutput("populationPlot")
-               ),
-               tabPanel(
-                 "Estimate",
-                 plotOutput("estimatePlot")
-               )
-             )
-      )
+             plotOutput("impactPlot"))
     )
   )
 }

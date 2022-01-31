@@ -342,9 +342,8 @@ server <- function(input, output, session) {
     measure_user_impact(rv$user_impact_data)
   )
 
-  # . impact plots ----
-
-  output$timeseriesPlot <- renderPlot(
+  # . impactPlot ----
+  output$impactPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
                            input$selectedExperiment,
                             experiment[name == input$selectedExperiment,
@@ -352,13 +351,8 @@ server <- function(input, output, session) {
                            rv$impactVariableLoaded)
   )
 
-  output$populationPlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, F)
-  )
 
-  output$estimatePlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, T)
-  )
+
 
 }
 
