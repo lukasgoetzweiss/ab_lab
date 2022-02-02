@@ -30,7 +30,7 @@ get_user_impact_data = function(experiment_id,
          and ea.experiment_id = {experiment_id}
         join {Sys.getenv('bq_dataSet')}.experiment e
           on e.experiment_id = ea.experiment_id
-         #and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
+         and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
          and {ts_timestamp} < e.end_datetime
         join {Sys.getenv('bq_dataSet')}.treatment t
           on t.treatment_id = ea.treatment_id
@@ -88,7 +88,65 @@ measure_user_impact = function(user_impact_data){
 
 }
 
-# helper functions
+plot_distribution = function(user_impact_data,
+                             impact_variable = NULL,
+                             estimate = F,
+                             colors = rctr_colors()){
+
+  if(is.null(user_impact_data)){
+    return(
+      ggplot() + ggtitle("") + theme(panel.background = element_blank())
+    )
+  }
+
+  if(is.null(impact_variable)){ impact_variable = "impact_variable" }
+
+  if(estimate == F){
+    return(
+      ggplot(user_impact_data,
+             aes(impact_variable, fill = treatment, color = treatment)) +
+        geom_histogram(position = "identity", alpha = 0.5) +
+        scale_fill_manual(name = "", values = colors) +
+        scale_color_manual(name = "", values = colors) +
+        xlab(impact_variable) +
+        theme(text = element_text(size = 20, family = "sans"),
+              legend.position = "bottom",
+              strip.background = element_blank(),
+              panel.background = element_rect(fill = "grey98"),
+              panel.grid.major.y = element_line(color = "grey90"),
+              panel.grid.major.x = element_line(color = "grey90")) +
+        facet_wrap(~factor(period, levels = c("pre", "post")))
+    )
+  } else {
+    estimate = user_impact_data[, .(mu = mean(impact_variable),
+                                    se = sd(impact_variable) / sqrt(.N),
+                                    dm = 1),
+                                .(treatment, period)]
+    xax = estimate[, seq(min(mu - 3*se), max(mu + 3*se), length.out = 500)]
+    estimate_gg_data = merge(
+      estimate, data.table(x = xax, dm = 1), allow.cartesian = T
+    )
+    return(
+      ggplot(estimate_gg_data,
+             aes(x, dnorm(x, mu, se), color = treatment, fill = treatment)) +
+        geom_line() + geom_area(alpha = 0.5, position = "identity") +
+        xlab(paste("E[", impact_variable, "]", sep = "")) +
+        scale_fill_manual(name = "", values = colors) +
+        scale_color_manual(name = "", values = colors) +
+        scale_y_continuous("likelihood", labels = NULL) +
+        theme(text = element_text(size = 20, family = "mono"),
+              legend.position = "bottom",
+              strip.background = element_blank(),
+              panel.background = element_rect(fill = "grey98"),
+              panel.grid.major.y = element_line(color = "grey90"),
+              panel.grid.major.x = element_line(color = "grey90")) +
+        facet_wrap(~factor(period, levels = c("pre", "post")))
+    )
+  }
+
+}
+
+# helper functions ----
 
 fmt_lift = function(x){
   stringr::str_c(ifelse(x > 0, "+", ""), scales::percent(x))

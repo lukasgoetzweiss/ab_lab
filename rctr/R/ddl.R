@@ -10,9 +10,6 @@ ddl.built_in_tables = function(){
       "audience_filter",
       "experiment_audience"
   )
-  if(Sys.getenv("delivery_table") == "treatment_delivery"){
-    tbls = c(tbls, "treatment_delivery")
-  }
   return(tbls)
 }
 
@@ -21,9 +18,6 @@ ddl.user_defined_tables = function(){
     Sys.getenv("segment_table"),
     Sys.getenv("timeseries_table")
   )
-  if(Sys.getenv("delivery_table") != "treatment_delivery"){
-    tbls = c(tbls, Sys.getenv("delivery_table"))
-  }
   return(tbls)
 }
 
@@ -109,11 +103,6 @@ ddl.experiment = function(){
   #   , name STRING
   #   , audience_id INT64
   #   , primary_impact_variable STRING
-  #   , delivery_variable STRING
-  #   , attrition_variable STRING
-  #   , attrition_rate_prior FLOAT64
-  #   , attrition_independence_prior STRING
-  #   , spillover_prior STRING
   #   , start_datetime TIMESTAMP
   #   , end_datetime TIMESTAMP
   #   , create_datetime TIMESTAMP
@@ -129,10 +118,6 @@ ddl.experiment = function(){
       name = "template",
       audience_id = as.integer(0),
       primary_impact_variable = "template",
-      delivery_treatment_prior = 0.5,
-      delivery_control_prior = 0.5,
-      attrition_mode_prior = "template",
-      attrition_rate_prior = 0.5,
       start_datetime = Sys.time(),
       end_datetime = Sys.time(),
       create_datetime = Sys.time(),
@@ -247,30 +232,6 @@ ddl.experiment_audience = function(){
       create_datetime = Sys.time(),
       modified_datetime = Sys.time()
     )
-  )
-
-}
-
-ddl.treatment_delivery = function(){
-
-  if(Sys.getenv("unit_pk") == ""){
-    stop("environment variable unit_pk note defined")
-  }
-
-  template_data = data.table(
-    treatment_delivery_id = as.integer(0),
-    unit_id = as.integer(0),
-    treatment_id = as.integer(0),
-    delivery_timestamp = Sys.time()
-  )
-
-  setnames(template_data, "unit_id", Sys.getenv("unit_pk"))
-
-  bigQueryR::bqr_create_table(
-    projectId = Sys.getenv("bq_projectID"),
-    datasetId = Sys.getenv("bq_dataSet"),
-    tableId = "treatment_delivery",
-    template_data = template_data
   )
 
 }

@@ -21,9 +21,9 @@ get_experiment_summary = function(experiment_name,
   if(days_live > 0){
     days_live_str = str_c("Live since ",
                           as_date(exp_start),
-                          " (", days_live, ")\n")
+                          " (", days_live, " days)\n")
   } else {
-    days_live_str = str_c("Launches in ", -days_live, " days\n")
+    days_live_str = str_c("Launches on ", as_date(exp_start),"\n")
   }
 
   return(str_c(
