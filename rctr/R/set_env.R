@@ -21,6 +21,6 @@ set_env = function(config_path = "~/rctr.yml"){
   Sys.setenv(timeseries_table = config$timeseries_table)
   Sys.setenv(timeseries_timestamp = config$timeseries_timestamp)
 
-  bigrquery::bq_auth(config$bq_user)
+  # bigrquery::bq_auth(config$bq_user, cache = T)
   bigQueryR::bqr_auth(json_file = config$bq_verif)
 }

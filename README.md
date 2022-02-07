@@ -19,9 +19,9 @@ rctr is set up in three steps:
 2. setup config file
 3. run docker image
 
-### Define data intergration
+### Data integration
 
-Before starting, identify your unit of observation. In what follows, let's assume the unit of observation is a user
+Before starting, identify your unit of observation. In what follows, let's assume the unit of observation is a user.
 
 Next, create a new BigQuery data set and create two views (or tables):
 
@@ -48,7 +48,7 @@ Note that you can name your table anything (you'll specify the table name when s
         ,  units_sold
         ,  total_sales
       from transactions
-  )
+  );
 ```
 
 Again, feel free to name this table whatever makes sense for your application. The only requirements on this table are that it can join to the dimension table above (in this case on `user_id`), and that it contains a date field.
@@ -75,7 +75,23 @@ timeseries_timestamp: <name of datefield in timeseries_table, e.g., date>
 Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command in bash
 
 ```
-docker run ...
+docker run --rm \
+  -p 3838:3838 \
+  -v ~/ab_lab_mnt:/srv test \
+  -e GOOGLE_APPLICATION_CREDENTIALS="/srv/hazel-champion-318400-412f14ac362f.json" \
+  test
+  
+docker run --rm \
+  -e GOOGLE_APPLICATION_CREDENTIALS \
+  -p 3838:3838 \
+  -v ~/ab_lab_mnt:/srv \
+  test
+  
+docker run --rm \
+  -e GOOGLE_APPLICATION_CREDENTIALS \
+  -p 3838:3838 \
+  -v ~/ab_lab_mnt:/srv \
+  test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
 ```
 
 

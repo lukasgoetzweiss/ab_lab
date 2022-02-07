@@ -1,6 +1,6 @@
 get_cumulative_impact_data = function(experiment_id,
                                       impact_variable,
-                                      max_horizon = 28,
+                                      max_horizon = 14,
                                       horizon_step = 1){
 
   ts_timestamp = glue(

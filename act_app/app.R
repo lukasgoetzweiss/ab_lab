@@ -15,23 +15,30 @@ library(stringr)
 library(ggplot2)
 library(scales)
 
-devtools::load_all("../rctr/")
+options(shiny.sanitize.errors = FALSE)
 
-set_env("~/exampleCorp/ec/context.yml")
-# set_env("/srv/context.yml")
-schema_tbls = ddl.check()
+run_locally = T
+if(run_locally){
+  devtools::load_all("../rctr/")
+  set_env("~/exampleCorp/ec/context.yml")
+} else {
+  devtools::load_all("/src/rctr/rctr")
+  set_env("/srv/context.yml")
+}
+
+# schema_tbls = ddl.check()
 
 #### global data ----
 
-# query data from project schema
-treatment = get_table("treatment")
-audience = get_table("audience")
-audience_filter = get_table("audience_filter")
-experiment = get_table("experiment")
-experiment_treatment = get_table("experiment_treatment")
-experiment_audience = get_table("experiment_audience")
-
-user = get_table(Sys.getenv("segment_table"))
+# # query data from project schema
+# treatment = get_table("treatment")
+# audience = get_table("audience")
+# audience_filter = get_table("audience_filter")
+# experiment = get_table("experiment")
+# experiment_treatment = get_table("experiment_treatment")
+# experiment_audience = get_table("experiment_audience")
+#
+# user = get_table(Sys.getenv("segment_table"))
 
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(
@@ -53,7 +60,7 @@ css <- HTML(" body {
             }")
 
 ui = navbarPage(
-  "ACT",
+  "rctr",
   id = "mainNav",
   theme = shinytheme("flatly"),
   selected = "experiment",
@@ -118,7 +125,8 @@ server <- function(input, output, session) {
   # VIEW AUDIENCE ----
 
   # audience
-  output$audience <- renderDT(rv$audience, selection = 'single')
+  output$audience <- renderDT(rv$audience[, .(`Audience Name` = name)],
+                              selection = 'single')
 
   # audience_rows_selected
   audienceRowsSelectedObs(input, output, rv)
@@ -126,7 +134,9 @@ server <- function(input, output, session) {
   # CREATE AUDIENCE ----
 
   # audienceFilter
-  output$audienceFilter = renderDT(rv$audienceFilter)
+  output$audienceFilterSql = renderText(
+    format_audience_query(rv$audienceFilter)
+  )
 
   # new filter UIs
   output$audienceFilterMetricRange = renderUI({
@@ -291,4 +301,7 @@ server <- function(input, output, session) {
 
 #### run ----
 
-shinyApp(ui, server)
+# shinyApp(ui, server)
+
+app <- shinyApp(ui = ui, server = server)
+runApp(app, host ="0.0.0.0", port = 80, launch.browser = FALSE)
