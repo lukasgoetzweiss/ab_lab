@@ -6,10 +6,10 @@ rctr is an open source web app to help data scientists orchestrate and report on
 
 There are four terms to understand to begin running experiments in rctr:
 
-1. **A unit of observation** - in most contexts this will be a user or potential customer
-2. **An audience** - a set of units of observation defined by some filtering logic
-3. **A treatment** - an specific action, policy, or intervention put forward towards a unit of observation
-4. **An experiment** - a set of treatments applied to an audience over a specified time period
+1. **Unit of observation** - in most contexts this will be a user or potential customer
+2. **Audience** - a set of units of observation defined by some filtering logic
+3. **Treatment** - an specific action, policy, or intervention put forward towards a unit of observation
+4. **Experiment** - a set of treatments applied to an audience over a specified time period
 
 ## Setup
 
@@ -72,26 +72,16 @@ timeseries_timestamp: <name of datefield in timeseries_table, e.g., date>
 
 ### Run docker image
 
-Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command in bash
+Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command in bash to build a local docker image and
 
 ```
-docker run --rm \
-  -p 3838:3838 \
-  -v ~/ab_lab_mnt:/srv test \
-  -e GOOGLE_APPLICATION_CREDENTIALS="/srv/hazel-champion-318400-412f14ac362f.json" \
-  test
-  
+docker build -t my_container .
+
 docker run --rm \
   -e GOOGLE_APPLICATION_CREDENTIALS \
   -p 3838:3838 \
   -v ~/ab_lab_mnt:/srv \
-  test
-  
-docker run --rm \
-  -e GOOGLE_APPLICATION_CREDENTIALS \
-  -p 3838:3838 \
-  -v ~/ab_lab_mnt:/srv \
-  test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
+  my_container Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
 ```
 
 
