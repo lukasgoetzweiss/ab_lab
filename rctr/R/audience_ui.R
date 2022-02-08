@@ -11,13 +11,17 @@ audience_ui = function(){
     tabPanel(
       "View",
       value = "viewAudience",
-      DTOutput('audience'),
-      DTOutput('audienceSelected')
+      fluidRow(
+        column(5,
+               DTOutput('audience')),
+        column(7,
+               verbatimTextOutput('audienceSelectedSql'))
+      )
     ),
     tabPanel(
       "Create",
       h2("Audience Filters"),
-      DTOutput('audienceFilter'),
+      verbatimTextOutput("audienceFilterSql"),
       actionButton("createAudienceFilter",
                    "Add Filter",
                    icon = icon("fas fa-plus")),

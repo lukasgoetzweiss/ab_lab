@@ -1,7 +1,6 @@
 #' Pulls timeseries data for analysis and plotting
 #'
 #' @param dataset BigQuery dataset
-#' @param experiment_name experiment to analyze
 #' @param impact_variable variable to be measured
 #' @param pre_period_days how far into the past to pull pre-period data
 #'
@@ -38,14 +37,12 @@ get_timeseries_impact_data = function(experiment_id,
 #' Plots timeseries impact
 #'
 #' @param timeseries_impact_data output of get_timeseries_impact_data
-#' @param experiment_name experiment name (for plot)
 #' @param impact_variable impact variable name (for plot_)
 #' @param colors line colors for plot
 #'
 #' @return
 #' @export
 plot_timeseries_impact = function(timeseries_impact_data,
-                                  experiment_name,
                                   experiment_start,
                                   impact_variable,
                                   colors = rctr_colors()){
@@ -65,12 +62,12 @@ plot_timeseries_impact = function(timeseries_impact_data,
       guides(linetype = F) +
       xlab("") +
       ylab(impact_variable) +
-      ggtitle(str_c("Impact on ", impact_variable, " from ", experiment_name)) +
+      ggtitle(str_c("Impact on ", impact_variable)) +
       scale_color_manual(name = "", values = colors) +
       theme(legend.position = "bottom",
             panel.background = element_blank(),
             panel.grid.major.y = element_line(color = "grey90"),
             panel.grid.major.x = element_line(color = "grey90"),
-            text = element_text(size = 20, family = "mono"))
+            text = element_text(size = 20, family = "sans"))
   )
 }

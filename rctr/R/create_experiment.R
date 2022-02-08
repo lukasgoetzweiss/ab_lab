@@ -13,9 +13,6 @@ input_to_experiment_record = function(input){
     "newExperimentTreatment",
     "newExperimentAudience",
     "newExperimentVariable",
-    "newExperimentDeliveryTreatment",
-    "newExperimentDeliveryControl",
-    "newExperimentAttritionMode",
     "newExperimentControlPercentage",
     "newExperimentDateRange"
   )
@@ -29,17 +26,6 @@ input_to_experiment_record = function(input){
     name = input$newExperimentName,
     audience = input$newExperimentAudience,
     primary_impact_variable = input$newExperimentVariable,
-
-    delivery_treatment_prior = as.numeric(input$newExperimentDeliveryTreatment),
-    delivery_control_prior = as.numeric(input$newExperimentDeliveryControl),
-
-    attrition_mode_prior = input$newExperimentAttritionMode,
-    attrition_rate_prior = ifelse(is.null(input$newExperimentAttritionRate),
-                                  NA_real_,
-                                  as.numeric(
-                                    is.null(input$newExperimentAttritionRate)
-                                  )),
-
     start_datetime = as.POSIXct(input$newExperimentDateRange[1]),
     end_datetime = as.POSIXct(input$newExperimentDateRange[2]),
     create_datetime = Sys.time(),
@@ -60,14 +46,12 @@ input_to_experiment_record = function(input){
 #' @return experiment_id
 #' @import data.table
 #' @export
-create_experiment = function(input,
+create_experiment = function(input, rv, session,
                              audience_id,
                              treatment_id,
-                             # name,
-                             # audience_id, experiment_treatment,
-                             # start_datetime, end_datetime,
                              dataset = Sys.getenv("bq_dataSet")){
 
+  # cast input data to experiment record
   experiment_record = input_to_experiment_record(input)
 
   # determine next experiment_id
@@ -85,12 +69,10 @@ create_experiment = function(input,
   experiment_record[, audience := audience_id]
   setnames(experiment_record, "audience", "audience_id")
 
-  push_data("experiment", experiment_record)
-
   # create experiment treatment
   message(Sys.time(), ": creating experiment_treatment records")
 
-  # determine next treatment_id
+  # determine next experiment_treatment_id
   experiment_treatment_id = pull_data(glue::glue(
     "select max(experiment_treatment_id)  from {dataset}.experiment_treatment"
   ))$f0_[1]
@@ -107,8 +89,80 @@ create_experiment = function(input,
     create_datetime = Sys.time()
   )
 
+  # create randomized audience
+
+  # push data to experiment_audience
+  experiment_audience_records = randomize_new_experiment_segment(
+    rv, input, experiment_id
+  )
+
+  message(now(), ": writing to experiment")
+  push_data("experiment", experiment_record)
+
+  message(now(), ": writing to experiment_treatment")
   push_data("experiment_treatment", experiment_treatment_records)
 
+  message(now(), " writing to experiment_audience")
+  push_data("experiment_audience", experiment_audience_records)
+
+  # refresh local instances of experiment and experiment_treatment
+  rv$experiment = get_table("experiment")
+  rv$experimentTreatment = get_table("experiment_treatment")
+  rv$experimentAudience = get_table("experiment_audience")
+
   return(experiment_id)
+
+}
+
+
+randomize_new_experiment_segment = function(rv, input, experiment_id){
+
+  # get sql logic for target segment
+  seg_sql = paste(
+    rv$audienceFilterAll[
+      audience_id == rv$audience[name == input$newExperimentAudience,
+                                 audience_id],
+      comparator_sql
+    ],
+    collapse = " and "
+  )
+
+  # pull eligible users
+  segment_units = pull_data(glue(
+    "select {Sys.getenv('unit_pk')} as unit_id
+         from {Sys.getenv('bq_dataSet')}.{Sys.getenv('segment_table')}
+        where {seg_sql}"
+  ))
+
+  # get parameters for randomization
+  n_units = segment_units[, .N]
+  p_ctrl = input$newExperimentControlPercentage
+  tx_id = rv$treatment[name == input$newExperimentTreatment, treatment_id]
+
+  # create random draw for each user
+  unit_ru = runif(n_units, 0, 1)
+
+  # split users based on random draw
+  unit_treatment = 1 + (unit_ru > quantile(unit_ru, p_ctrl)) * (tx_id - 1)
+
+  # prepare experiment_audience_id
+  experiment_audience_id = pull_data(glue(
+    "select max(experiment_audience_id)
+         from {Sys.getenv('bq_dataSet')}.experiment_audience"
+  ))[, f0_]
+  if(is.na(experiment_audience_id)){ experiment_audience_id = 0}
+  experiment_audience_id = experiment_audience_id + (1:n_units)
+
+  return(
+    segment_units[, .(
+      experiment_audience_id = as.integer(experiment_audience_id),
+      experiment_id = as.integer(experiment_id),
+      unit_id = as.integer(unit_id),
+      treatment_id = as.integer(unit_treatment),
+      active_fg = 'Y',
+      create_datetime = now(),
+      modified_datetime = now()
+    )]
+  )
 
 }

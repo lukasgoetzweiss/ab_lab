@@ -15,22 +15,30 @@ library(stringr)
 library(ggplot2)
 library(scales)
 
-devtools::load_all("../rctr/")
+options(shiny.sanitize.errors = FALSE)
 
-set_env("~/exampleCorp/ec/context.yml")
-schema_tbls = ddl.check()
+run_locally = T
+if(run_locally){
+  devtools::load_all("../rctr/")
+  set_env("~/exampleCorp/ec/context.yml")
+} else {
+  devtools::load_all("/src/rctr/rctr")
+  set_env("/srv/context.yml")
+}
+
+# schema_tbls = ddl.check()
 
 #### global data ----
 
-# query data from rctr schema
-treatment = get_table("treatment")
-audience = get_table("audience")
-audience_filter = get_table("audience_filter")
-experiment = get_table("experiment")
-experiment_treatment = get_table("experiment_treatment")
-experiment_audience = get_table("experiment_audience")
-
-user = get_table(Sys.getenv("segment_table"))
+# # query data from project schema
+# treatment = get_table("treatment")
+# audience = get_table("audience")
+# audience_filter = get_table("audience_filter")
+# experiment = get_table("experiment")
+# experiment_treatment = get_table("experiment_treatment")
+# experiment_audience = get_table("experiment_audience")
+#
+# user = get_table(Sys.getenv("segment_table"))
 
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(
@@ -52,11 +60,11 @@ css <- HTML(" body {
             }")
 
 ui = navbarPage(
-  "ACT",
+  "rctr",
   id = "mainNav",
   theme = shinytheme("flatly"),
   selected = "experiment",
-  tags$head(tags$style(HTML('* {font-family: "Courier"};'))),
+  tags$head(tags$style(HTML('* {font-family: "Verdana"};'))),
 
   # experiment
   experiment_ui(experiment, impact_variables),
@@ -67,8 +75,6 @@ ui = navbarPage(
   # audience
   audience_ui()
 )
-
-
 
 #### SERVER ----
 
@@ -119,7 +125,8 @@ server <- function(input, output, session) {
   # VIEW AUDIENCE ----
 
   # audience
-  output$audience <- renderDT(rv$audience, selection = 'single')
+  output$audience <- renderDT(rv$audience[, .(`Audience Name` = name)],
+                              selection = 'single')
 
   # audience_rows_selected
   audienceRowsSelectedObs(input, output, rv)
@@ -127,7 +134,9 @@ server <- function(input, output, session) {
   # CREATE AUDIENCE ----
 
   # audienceFilter
-  output$audienceFilter = renderDT(rv$audienceFilter)
+  output$audienceFilterSql = renderText(
+    format_audience_query(rv$audienceFilter)
+  )
 
   # new filter UIs
   output$audienceFilterMetricRange = renderUI({
@@ -190,11 +199,10 @@ server <- function(input, output, session) {
   # * * * * EXPERIMENT * * * * ----
   # reactive values ----
 
-  # local copy of experiment table
+  # local copy of experiment tables
   rv$experiment = copy(experiment)
-
-  # local copy of experiment_treatment table
   rv$experimentTreatment = copy(experiment_treatment)
+  rv$experimentAudience = copy(experiment_audience)
 
   # CREATE EXPERIMENT ----
 
@@ -208,90 +216,13 @@ server <- function(input, output, session) {
                           size = "l"))
   )
 
-  # . dynamic questionnaire ----
-
-  output$newExperimentAttritionRateUI = newExperimentAttritionRateUI.ui(input)
-
-  observeEvent(input$loadSizingData,{
-    shinyjs::disable("loadSizingData")
-    shinyjs::show("text1")
-    rv$sizingData = load_sizing_data(
-      input$newExperimentVariable,
-      today() - days(1),
-      today() - days(1 + diff(input$newExperimentDateRange))
-    )
-    rv$newExperimentAudienceSize = get_audience_size(
-      audience_filter[
-        audience_id == audience[
-          name == input$newExperimentAudience,
-          audience_id
-        ]
-      ]
-    )
-    shinyjs::enable("loadSizingData")
-    shinyjs::hide("text1")
-    }
-  )
-
-  output$newExperimentMDE = renderText(paste(
-    "Pre period average ", input$newExperimentVariable, ": ",
-    signif(rv$sizingData[, mu], digits = 6), "\n",
-    "Minimum detectable effect: ",
-    signif(
-      compute_mdr(N = rv$newExperimentAudienceSize,
-                  mu = rv$sizingData[, mu],
-                  sigma = rv$sizingData[, sigma],
-                  alpha = 0.05, power = 0.8,
-                  plot = F)$delta,
-      digits = 6
-     ), "\n",
-    "(N = ", rv$newExperimentAudienceSize,
-    " stddev = ", signif(rv$sizingData[, sigma], 6), ")"
-  , sep = ""))
-
-  # delivery
-  # output$q2.1.ui <- ecs.q2.1.ui(input)
-  # output$q2.2.ui <- ecs.q2.2.ui(input)
-  #
-  # # attrition
-  # output$q3.1.ui <- ecs.q3.1.ui(input)
-  # output$q3.2.ui <- ecs.q3.2.ui(input)
-  # output$q3.3.ui <- ecs.q3.3.ui(input)
-  # output$q3.4.ui <- ecs.q3.4.ui(input)
-  # output$q3.5.ui <- ecs.q3.5.ui(input)
-  #
-  # # spillover
-  # output$q4.1.ui <- ecs.q4.1.ui(input)
-  # output$q4.2.ui <- ecs.q4.2.ui(input)
-
-  # sizing
-  # (put code here)
-
-  # finish
-  output$newExperimentDescription <- get_experiment_description(input)
-
   # . click through ----
 
-  observeEvent(input$ecsBasicsNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "sizing")
-  })
-  # observeEvent(input$ecsDeliveryNext, {
-  #   updateTabsetPanel(session, "create_experiment_tabset", "attrition")
-  # })
-  # observeEvent(input$ecsAttritionNext, {
-  #   updateTabsetPanel(session, "create_experiment_tabset", "spillover")
-  # })
-  # observeEvent(input$ecsSpilloverNext, {
-  #   updateTabsetPanel(session, "create_experiment_tabset", "sizing")
-  # })
-  observeEvent(input$ecsSizingNext, {
-    updateTabsetPanel(session, "create_experiment_tabset", "finish")
-  })
   observeEvent(input$newExperimentSave, {
     removeModal()
     showModal(loadingModal("Creating experiment ..."))
     create_experiment(
-      input,
+      input, rv, session,
       audience_id = rv$audience[
         name == input$newExperimentAudience, audience_id
       ],
@@ -311,7 +242,7 @@ server <- function(input, output, session) {
   # setup from the ECS
   output$experimentSummary <- renderText(
     get_experiment_summary(input$selectedExperiment,
-                           experiment_audience = experiment_audience,
+                           experiment_audience = rv$experimentAudience,
                            experiment = rv$experiment,
                            treatment = rv$treatment)
   )
@@ -335,6 +266,13 @@ server <- function(input, output, session) {
       pre_period_days = 14
     )
     removeModal()
+    showModal(loadingModal("Loading cumulative impact data ..."))
+    rv$cumulative_impact_data = get_cumulative_impact_data(
+      experiment_id = rv$experiment[name == input$selectedExperiment,
+                                    experiment_id],
+      impact_variable = input$impactVariable
+    )
+    removeModal()
   })
 
   # . impactSummary ----
@@ -342,26 +280,28 @@ server <- function(input, output, session) {
     measure_user_impact(rv$user_impact_data)
   )
 
-  # . impact plots ----
+  # . impactPlots ----
 
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
-                           input$selectedExperiment,
                             experiment[name == input$selectedExperiment,
                                        start_datetime],
                            rv$impactVariableLoaded)
+  )
+
+  output$cumulativePlot <- renderPlot(
+    plot_cumulative_impact(compute_cumulative_impact(rv$cumulative_impact_data))
   )
 
   output$populationPlot <- renderPlot(
     plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, F)
   )
 
-  output$estimatePlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, T)
-  )
-
 }
 
 #### run ----
 
-shinyApp(ui, server)
+# shinyApp(ui, server)
+
+app <- shinyApp(ui = ui, server = server)
+runApp(app, host ="0.0.0.0", port = 80, launch.browser = FALSE)

@@ -30,7 +30,7 @@ get_user_impact_data = function(experiment_id,
          and ea.experiment_id = {experiment_id}
         join {Sys.getenv('bq_dataSet')}.experiment e
           on e.experiment_id = ea.experiment_id
-         #and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
+         and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
          and {ts_timestamp} < e.end_datetime
         join {Sys.getenv('bq_dataSet')}.treatment t
           on t.treatment_id = ea.treatment_id
@@ -88,25 +88,6 @@ measure_user_impact = function(user_impact_data){
 
 }
 
-# helper functions
-
-fmt_lift = function(x){
-  stringr::str_c(ifelse(x > 0, "+", ""), scales::percent(x))
-}
-
-comp_str = function(x){
-  ifelse(x<0, "lower than control", "higher than control")
-}
-
-format_tt_ci = function(tt){
-  stringr::str_c("(",
-        scales::percent(-tt$conf.int[2] / tt$estimate[1]),
-        ", ",
-        scales::percent(-tt$conf.int[1] / tt$estimate[1]),
-        ")"
-  )
-}
-
 plot_distribution = function(user_impact_data,
                              impact_variable = NULL,
                              estimate = F,
@@ -128,7 +109,7 @@ plot_distribution = function(user_impact_data,
         scale_fill_manual(name = "", values = colors) +
         scale_color_manual(name = "", values = colors) +
         xlab(impact_variable) +
-        theme(text = element_text(size = 20, family = "mono"),
+        theme(text = element_text(size = 20, family = "sans"),
               legend.position = "bottom",
               strip.background = element_blank(),
               panel.background = element_rect(fill = "grey98"),
@@ -165,4 +146,21 @@ plot_distribution = function(user_impact_data,
 
 }
 
+# helper functions ----
 
+fmt_lift = function(x){
+  stringr::str_c(ifelse(x > 0, "+", ""), scales::percent(x))
+}
+
+comp_str = function(x){
+  ifelse(x<0, "lower than control", "higher than control")
+}
+
+format_tt_ci = function(tt){
+  stringr::str_c("(",
+        scales::percent(-tt$conf.int[2] / tt$estimate[1]),
+        ", ",
+        scales::percent(-tt$conf.int[1] / tt$estimate[1]),
+        ")"
+  )
+}

@@ -32,7 +32,11 @@ compute_mdr = function(N, mu, sigma, alpha, power, plot = T){
 
   mdr = power.t.test(n = N / 2, sd = sigma, sig.level = alpha, power = power)
 
-  if(plot == T){
+  if(plot == F){
+    
+    return(mdr)
+    
+  } else {
 
     xax = seq(mu - 3 * sigma / sqrt(N/2),
               mu + mdr$delta + 3 * sigma / sqrt(N/2),
@@ -46,21 +50,21 @@ compute_mdr = function(N, mu, sigma, alpha, power, plot = T){
                  gp = "H_1")
     )
 
-    ggplot(ggdata, aes(x, y, color = gp, fill = gp)) +
-      geom_area(alpha = 0.5, position = "identity") +
-      scale_fill_manual(name = "", values = c("grey60", rctr_colors()[1])) +
-      scale_color_manual(name = "", values = c("grey60", rctr_colors()[1])) +
-      scale_y_continuous(name = "Density", labels = NULL) +
-      theme(legend.position = "bottom",
-            panel.background = element_blank(),
-            panel.grid.major.y = element_line(color = "grey90"),
-            panel.grid.major.x = element_line(color = "grey90"),
-            text = element_text(size = 20, family = "mono"))
+    return(list(
+      mdr = mdr,
+      plot = ggplot(ggdata, aes(x, y, color = gp, fill = gp)) +
+        geom_area(alpha = 0.5, position = "identity") +
+        scale_fill_manual(name = "", values = c("grey60", rctr_colors()[1])) +
+        scale_color_manual(name = "", values = c("grey60", rctr_colors()[1])) +
+        scale_y_continuous(name = "Density", labels = NULL) +
+        theme(legend.position = "bottom",
+              panel.background = element_blank(),
+              panel.grid.major.y = element_line(color = "grey90"),
+              panel.grid.major.x = element_line(color = "grey90"),
+              text = element_text(size = 20, family = "mono"))
+    ))
 
   }
-
-  return(mdr)
-
 
 }
 

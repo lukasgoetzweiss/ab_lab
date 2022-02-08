@@ -225,12 +225,15 @@ createAudienceOkObs = function(input, rv, session){
       name = input$audienceName,
       audience_filter = rv$audienceFilter
     )
+
+    # update local instance of db tables
     rv$audience = get_table("audience")
     rv$audienceFilterAll = get_table("audience_filter")
+
     # reset rv$audienceFilter
     rv$audienceFilter = data.table()
-    # reset included tag
-    # rv$user[, incl := T]
+
+    # reset app
     removeModal()
     updateTabsetPanel(
       session, "mainNav",

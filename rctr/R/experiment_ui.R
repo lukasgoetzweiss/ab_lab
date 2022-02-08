@@ -19,20 +19,18 @@ experiment_ui = function(experiment, impact_variables){
                           "Create new experiment",
                           icon = icon("plus"))
       ),
-      column(3,
-             selectInput("impactVariable",
-                         "Select Impact Variable",
-                         choices = impact_variables,
-                         multiple = F)),
-      column(4,
-             actionButton("loadImpact", "Measure impact")),
-      column(2, p(""))
+      column(9,
+             p("Setup"),
+             verbatimTextOutput("experimentSummary"))
     ),
     hr(),
     fluidRow(
       column(5,
-             p("Setup"),
-             verbatimTextOutput("experimentSummary"),
+             selectInput("impactVariable",
+                         "Select Impact Variable",
+                         choices = impact_variables,
+                         multiple = F),
+             actionButton("loadImpact", "Measure impact"),
              p("Results"),
              verbatimTextOutput("impactSummary")),
       column(7,
@@ -42,12 +40,12 @@ experiment_ui = function(experiment, impact_variables){
                  plotOutput("timeseriesPlot")
                ),
                tabPanel(
-                 "Population",
-                 plotOutput("populationPlot")
+                 "Cumulative Impact",
+                 plotOutput("cumulativePlot")
                ),
                tabPanel(
-                 "Estimate",
-                 plotOutput("estimatePlot")
+                 "Population",
+                 plotOutput("populationPlot")
                )
              )
       )
