@@ -21,15 +21,30 @@ push_data = function(tableId, upload_data,
                      writeDisposition = "WRITE_APPEND",
                      create = "CREATE_NEVER",
                      schema = NULL){
-  bigQueryR::bqr_upload_data(
-    projectId = projectID,
-    datasetId = dataSet,
-    tableId = tableId,
-    upload_data = upload_data,
-    writeDisposition = writeDisposition,
-    schema = schema,
-    create = create,
-    autodetect = F
-  )
+
+  tryCatch({
+    tmp = bigQueryR::bqr_upload_data(
+      projectId = projectID,
+      datasetId = dataSet,
+      tableId = tableId,
+      upload_data = upload_data,
+      writeDisposition = writeDisposition,
+      schema = schema,
+      create = create,
+      autodetect = F
+    )
+  },
+  error = function(cond){
+    message("API returned following error:")
+    if(stringr::str_detect(cond$message, "Not found")){
+      message("\n Job not found... continuing anyway")
+    } else {
+      message("Unexpected error occurred pushing to DB")
+    }
+  },
+  finally = {
+    message("exiting tryCatch")
+  })
+
   return(NULL)
 }

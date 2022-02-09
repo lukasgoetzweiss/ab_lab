@@ -19,26 +19,27 @@ options(shiny.sanitize.errors = FALSE)
 
 run_locally = T
 if(run_locally){
-  devtools::load_all("../rctr/")
-  set_env("~/exampleCorp/ec/context.yml")
+  devtools::load_all("~/ab_lab/rctr/")
+  # set_env("~/exampleCorp/ec/context.yml")
+  set_env("~/ab_lab_mnt_lummo/context.yml")
 } else {
   devtools::load_all("/src/rctr/rctr")
   set_env("/srv/context.yml")
 }
 
-# schema_tbls = ddl.check()
+schema_tbls = ddl.check()
 
 #### global data ----
 
 # # query data from project schema
-# treatment = get_table("treatment")
-# audience = get_table("audience")
-# audience_filter = get_table("audience_filter")
-# experiment = get_table("experiment")
-# experiment_treatment = get_table("experiment_treatment")
-# experiment_audience = get_table("experiment_audience")
-#
-# user = get_table(Sys.getenv("segment_table"))
+treatment = get_table("treatment")
+audience = get_table("audience")
+audience_filter = get_table("audience_filter")
+experiment = get_table("experiment")
+experiment_treatment = get_table("experiment_treatment")
+experiment_audience = get_table("experiment_audience")
+
+user = get_table(Sys.getenv("segment_table"))
 
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(

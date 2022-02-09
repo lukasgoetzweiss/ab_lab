@@ -157,7 +157,7 @@ randomize_new_experiment_segment = function(rv, input, experiment_id){
     segment_units[, .(
       experiment_audience_id = as.integer(experiment_audience_id),
       experiment_id = as.integer(experiment_id),
-      unit_id = as.integer(unit_id),
+      unit_id = as.character(unit_id),
       treatment_id = as.integer(unit_treatment),
       active_fg = 'Y',
       create_datetime = now(),

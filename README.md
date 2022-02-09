@@ -75,13 +75,15 @@ timeseries_timestamp: <name of datefield in timeseries_table, e.g., date>
 Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command in bash to build a local docker image and
 
 ```
-docker build -t my_container .
+docker build -t test .
+
+export GOOGLE_APPLICATION_CREDENTIALS=/srv/hazel-champion-318400-412f14ac362f.json
 
 docker run --rm \
   -e GOOGLE_APPLICATION_CREDENTIALS \
-  -p 3838:3838 \
+  -p 80:80 \
   -v ~/ab_lab_mnt:/srv \
-  my_container Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
+  test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
 ```
 
 

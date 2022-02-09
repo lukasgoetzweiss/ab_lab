@@ -13,7 +13,7 @@ get_cumulative_impact_data = function(experiment_id,
       select ea.unit_id           as unit_id
           ,  ea.treatment_id
           ,  h.horizon
-        from ecommerce_example.experiment_audience ea
+        from {Sys.getenv('bq_dataSet')}.experiment_audience ea
   cross join (select horizon
                 from UNNEST(GENERATE_ARRAY(1, {max_horizon}, {horizon_step})) as horizon
              ) h
@@ -25,9 +25,9 @@ get_cumulative_impact_data = function(experiment_id,
       ,  g.horizon
       ,  sum(ts.{impact_variable})           as {impact_variable}
     from grid g
-    join ecommerce_example.experiment e
+    join {Sys.getenv('bq_dataSet')}.experiment e
       on e.experiment_id = 1
-    left join ecommerce_example.{Sys.getenv('timeseries_table')} ts
+    left join {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
       on g.unit_id = ts.{Sys.getenv('unit_pk')}
      and ts.{Sys.getenv('timeseries_timestamp')} >= cast(e.start_datetime as date)
      and ts.{Sys.getenv('timeseries_timestamp')} <= cast(date_add(e.start_datetime, INTERVAL g.horizon day) as date)

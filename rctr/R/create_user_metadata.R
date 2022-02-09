@@ -16,7 +16,7 @@ create_user_metadata = function(user = NULL){
   user_variable = NULL
   user_variable_value = NULL
 
-  for(col_name in setdiff(names(user), "user_id")){
+  for(col_name in setdiff(names(user), Sys.getenv("unit_pk"))){
     if(user[, is.Date(get(col_name))]){
       message("parsing ", col_name, " as date")
     } else if (user[, mode(get(col_name))] == "character"){

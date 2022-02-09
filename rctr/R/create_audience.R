@@ -198,6 +198,7 @@ create_audience_filter_variable_plot = function(input, rv){
                       name = "") +
     xlab(input$audienceFilterMetric) +
     ylab("Users") +
+    coord_flip() +
     theme(panel.background = element_blank(),
           panel.grid.major.y = element_line(color = "grey90"),
           legend.position = "bottom")

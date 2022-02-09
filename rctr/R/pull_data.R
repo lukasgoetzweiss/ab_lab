@@ -9,6 +9,8 @@
 #' @return data.table populated with query results
 #' @export
 pull_data = function(sql, projectID = Sys.getenv("bq_projectID")){
+  message(lubridate::now(), " running query:")
+  message(sql)
   tb <- bigrquery::bq_project_query(projectID, sql)
   res = bigrquery::bq_table_download(tb)
   return(data.table::data.table(res))
