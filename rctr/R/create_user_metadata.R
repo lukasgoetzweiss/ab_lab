@@ -35,8 +35,8 @@ create_user_metadata = function(user = NULL){
         user_metric,
         data.table(
           name = col_name,
-          metric_min = user[, min(get(col_name))],
-          metric_max = user[, max(get(col_name))]
+          metric_min = user[, min(get(col_name), na.rm = T)],
+          metric_max = user[, max(get(col_name), na.rm = T)]
         )
       )
     } else {

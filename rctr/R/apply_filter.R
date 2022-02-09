@@ -16,9 +16,11 @@ apply_filter = function(user, filter_params){
   if(filter_type == "m"){
     user[get(fp[2]) < as.numeric(fp[3]) | get(fp[2]) > as.numeric(fp[4]),
          incl := F]
+    user[is.na(get(fp[2])), incl := F]
 
   } else if(filter_type == "v"){
     user[!(get(fp[2]) %in% fp[-c(1,2)]), incl := F]
+    user[is.na(get(fp[2])), incl := F]
   } else {
     warning(paste("unable to parse filter_params:", filter_params))
   }

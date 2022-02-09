@@ -169,6 +169,7 @@ audienceFilterVariableOkObs = function(input, rv){
 create_audience_filter_metric_plot = function(input, rv){
 
   rv$user()[, incl_margin := get(input$audienceFilterMetric) %between% input$audienceFilterMetricRange]
+  rv$user()[is.na(incl_margin), incl_margin := FALSE]
 
   ggplot(rv$user(), aes(get(input$audienceFilterMetric),
                         fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
