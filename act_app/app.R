@@ -68,7 +68,7 @@ ui = navbarPage(
   tags$head(tags$style(HTML('* {font-family: "Verdana"};'))),
 
   # experiment
-  experiment_ui(experiment, impact_variables),
+  experiment_ui(impact_variables),
 
   # treatment
   treatment_ui(),
@@ -240,6 +240,10 @@ server <- function(input, output, session) {
 
   # VIEW EXPERIMENT ----
 
+  # . select an experiment ----
+
+  output$selectExperimentUI = select_experiment_ui(rv)
+
   # . experimentSummary ----
 
   # this should eventually include all of the information about the experiment
@@ -288,8 +292,8 @@ server <- function(input, output, session) {
 
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
-                            experiment[name == input$selectedExperiment,
-                                       start_datetime],
+                           rv$experiment[name == input$selectedExperiment,
+                                         start_datetime],
                            rv$impactVariableLoaded)
   )
 

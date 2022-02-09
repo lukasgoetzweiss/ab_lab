@@ -40,7 +40,10 @@ get_cumulative_impact_data = function(experiment_id,
 
 compute_cumulative_impact = function(cumulative_impact_data){
 
-  if(is.null(cumulative_impact_data)){ return(NULL) }
+  if(is.null(cumulative_impact_data) ||
+     !any(complete.cases(cumulative_impact_data))){
+    return(NULL)
+  }
 
   meas_vars = setdiff(
     names(cumulative_impact_data),
@@ -77,7 +80,8 @@ plot_cumulative_impact = function(cumulative_impact){
 
   if(is.null(cumulative_impact)){
     return(
-      ggplot() + ggtitle("") + theme(panel.background = element_blank())
+      ggplot() + ggtitle("Results will appear once experiment starts") +
+        theme(panel.background = element_blank())
     )
   }
 

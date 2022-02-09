@@ -6,15 +6,12 @@
 #' @export
 #'
 #' @examples
-experiment_ui = function(experiment, impact_variables){
+experiment_ui = function(impact_variables){
   tabPanel(
     "Experiment", value = "experiment",
     fluidRow(
       column(3,
-             selectInput(inputId = "selectedExperiment",
-                         label = "Select Experiment",
-                         choices = experiment[, name],
-                         multiple = F),
+             uiOutput("selectExperimentUI"),
              actionButton("createExperiment",
                           "Create new experiment",
                           icon = icon("plus"))
@@ -51,4 +48,13 @@ experiment_ui = function(experiment, impact_variables){
       )
     )
   )
+}
+
+select_experiment_ui = function(rv){
+  return(renderUI(
+    selectInput(inputId = "selectedExperiment",
+                label = "Select Experiment",
+                choices = rv$experiment[, name],
+                multiple = F)
+  ))
 }

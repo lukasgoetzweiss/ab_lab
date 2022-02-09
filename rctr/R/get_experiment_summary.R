@@ -12,6 +12,10 @@ get_experiment_summary = function(experiment_name,
                                   experiment,
                                   treatment){
 
+  if(is.null(experiment_name) || experiment_name == ""){
+    return("No experiments found")
+  }
+
   exp_id = experiment[name == experiment_name, experiment_id]
   exp_vol = experiment_audience[experiment_id == exp_id, .N, treatment_id]
   exp_vol = merge(exp_vol, treatment[, .(name, treatment_id)])

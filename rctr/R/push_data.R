@@ -36,6 +36,7 @@ push_data = function(tableId, upload_data,
   },
   error = function(cond){
     message("API returned following error:")
+    message(as.character(cond$message))
     if(stringr::str_detect(cond$message, "Not found")){
       message("\n Job not found... continuing anyway")
     } else {
