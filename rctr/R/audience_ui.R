@@ -25,6 +25,8 @@ audience_ui = function(){
       actionButton("createAudienceFilter",
                    "Add Filter",
                    icon = icon("fas fa-plus")),
+      actionButton("resetAudienceFilter",
+                   "Reset"),
       p(),
       uiOutput("audienceCreateUI"),
       p()

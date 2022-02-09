@@ -189,6 +189,9 @@ server <- function(input, output, session) {
   # . audienceFilterVariableOk ----
   audienceFilterVariableOkObs(input, rv)
 
+  # . resetAudienceFilter ----
+  observeEvent(input$resetAudienceFilter,{ rv$audienceFilter = data.table() })
+
   # . createAudienceModal ----
   observeEvent(input$createAudience,{showModal(createAudienceModal())})
 
