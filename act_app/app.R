@@ -278,7 +278,12 @@ server <- function(input, output, session) {
     rv$cumulative_impact_data = get_cumulative_impact_data(
       experiment_id = rv$experiment[name == input$selectedExperiment,
                                     experiment_id],
-      impact_variable = input$impactVariable
+      impact_variable = input$impactVariable,
+      max_horizon = as.numeric(
+        (today() - days(1) -
+        rv$experiment[name == input$selectedExperiment,
+                      as_date(start_datetime)])
+      )
     )
     removeModal()
   })
@@ -293,8 +298,7 @@ server <- function(input, output, session) {
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
                            rv$experiment[name == input$selectedExperiment,
-                                         start_datetime],
-                           rv$impactVariableLoaded)
+                                         start_datetime])
   )
 
   output$cumulativePlot <- renderPlot(
@@ -302,7 +306,7 @@ server <- function(input, output, session) {
   )
 
   output$populationPlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, F)
+    plot_distribution(rv$user_impact_data, input$popVsEst == "Mean Estimate")
   )
 
 }

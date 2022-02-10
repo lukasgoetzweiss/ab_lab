@@ -22,29 +22,31 @@ experiment_ui = function(impact_variables){
     ),
     hr(),
     fluidRow(
-      column(5,
+      column(3,
              selectInput("impactVariable",
                          "Select Impact Variable",
                          choices = impact_variables,
-                         multiple = F),
-             actionButton("loadImpact", "Measure impact"),
-             p("Results"),
-             verbatimTextOutput("impactSummary")),
-      column(7,
-             tabsetPanel(
-               tabPanel(
-                 "Time Series",
-                 plotOutput("timeseriesPlot")
-               ),
-               tabPanel(
-                 "Cumulative Impact",
-                 plotOutput("cumulativePlot")
-               ),
-               tabPanel(
-                 "Population",
-                 plotOutput("populationPlot")
-               )
-             )
+                         multiple = T),
+             actionButton("loadImpact", "Measure impact")
+      )
+    ),
+
+    tabsetPanel(
+      tabPanel(
+        "Time Series",
+        plotOutput("timeseriesPlot")
+      ),
+      tabPanel(
+        "Cumulative Impact",
+        plotOutput("cumulativePlot")
+      ),
+      tabPanel(
+        "Distribution",
+        plotOutput("populationPlot"),
+        radioButtons("popVsEst", "",
+                     choices = c("Population", "Mean Estimate"),
+                     selected = "Population",
+                     inline = T)
       )
     )
   )

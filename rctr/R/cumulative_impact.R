@@ -3,11 +3,13 @@ get_cumulative_impact_data = function(experiment_id,
                                       max_horizon = 14,
                                       horizon_step = 1){
 
-  ts_timestamp = glue(
-    "cast(ts.{Sys.getenv('timeseries_timestamp')} as TIMESTAMP)"
+  cm_vars = paste(
+    glue::glue(
+      "sum(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
+    ), collapse = ", "
   )
 
-  return(pull_data(glue(
+  return(pull_data(glue::glue(
 
       " with grid as (
       select ea.unit_id           as unit_id
@@ -23,7 +25,7 @@ get_cumulative_impact_data = function(experiment_id,
   select g.unit_id
       ,  g.treatment_id
       ,  g.horizon
-      ,  sum(ts.{impact_variable})           as {impact_variable}
+      ,  {cm_vars}
     from grid g
     join {Sys.getenv('bq_dataSet')}.experiment e
       on e.experiment_id = 1
@@ -96,9 +98,8 @@ plot_cumulative_impact = function(cumulative_impact){
             panel.grid.major.y = element_line(color = "grey90"),
             legend.position = "bottom",
             strip.background = element_blank(),
-            text = element_text(size = 20, family = "sans")) +
-      scale_x_continuous("Horizon (days)",
-                         breaks = seq(0, cumulative_impact[, max(horizon)], 7)) +
+            text = element_text(size = 14, family = "sans")) +
+      scale_x_continuous("Horizon (days)") +
       scale_y_continuous(name = "Lift", labels = scales::percent) +
       scale_fill_manual(name = "Stat Sign",
                         breaks = c(T, F),
