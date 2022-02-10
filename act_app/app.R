@@ -289,11 +289,20 @@ server <- function(input, output, session) {
   })
 
   # . impactSummary ----
-  output$impactSummary <- renderText(
-    measure_user_impact(rv$user_impact_data)
+  # output$impactSummary <- renderText(
+  #   measure_user_impact(rv$user_impact_data)
+  # )
+
+  output$analysisHorizonUI = renderUI(analysis_horizon_ui(input, rv))
+
+  # . impact table ----
+
+  output$cumulativeMeasurementDT <- renderDT(
+    format_cumulative_impact(rv$cumulative_impact_data,
+                             horizon_select = input$analysisHorizon)
   )
 
-  # . impactPlots ----
+  # . impact plots ----
 
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,

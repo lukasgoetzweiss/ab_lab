@@ -28,27 +28,34 @@ experiment_ui = function(impact_variables){
                          choices = impact_variables,
                          multiple = T),
              actionButton("loadImpact", "Measure impact")
+      ),
+      column(9,
+             tabsetPanel(
+               tabPanel(
+                 "Time Series",
+                 plotOutput("timeseriesPlot")
+               ),
+               tabPanel(
+                 "Measurement",
+                 DTOutput("cumulativeMeasurementDT"),
+                 uiOutput("analysisHorizonUI")
+               ),
+               tabPanel(
+                 "Cumulative Impact",
+                 plotOutput("cumulativePlot")
+               ),
+               tabPanel(
+                 "Distribution",
+                 plotOutput("populationPlot"),
+                 radioButtons("popVsEst", "",
+                              choices = c("Population", "Mean Estimate"),
+                              selected = "Population",
+                              inline = T)
+               )
+             )
       )
     ),
 
-    tabsetPanel(
-      tabPanel(
-        "Time Series",
-        plotOutput("timeseriesPlot")
-      ),
-      tabPanel(
-        "Cumulative Impact",
-        plotOutput("cumulativePlot")
-      ),
-      tabPanel(
-        "Distribution",
-        plotOutput("populationPlot"),
-        radioButtons("popVsEst", "",
-                     choices = c("Population", "Mean Estimate"),
-                     selected = "Population",
-                     inline = T)
-      )
-    )
   )
 }
 

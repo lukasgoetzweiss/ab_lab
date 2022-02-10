@@ -126,8 +126,6 @@ plot_distribution = function(user_impact_data,
     )
   }
 
-  if(is.null(impact_variable)){ impact_variable = "impact_variable" }
-
   user_melt = melt(user_impact_data[, !"treatment_id"],
                    id.vars = c("unit_id", "period", "treatment"))
 
@@ -138,7 +136,6 @@ plot_distribution = function(user_impact_data,
         geom_histogram(position = "identity", alpha = 0.5) +
         scale_fill_manual(name = "", values = colors) +
         scale_color_manual(name = "", values = colors) +
-        xlab(impact_variable) +
         theme(text = element_text(size = 20, family = "sans"),
               legend.position = "bottom",
               strip.background = element_blank(),
@@ -174,11 +171,11 @@ plot_distribution = function(user_impact_data,
       ggplot(estimate_gg_data,
              aes(x, dnorm(x, mu, se) * se, color = treatment, fill = treatment)) +
         geom_line() + geom_area(alpha = 0.5, position = "identity") +
-        xlab("Group mean") +
+        xlab("Daily Average") +
         scale_fill_manual(name = "", values = colors) +
         scale_color_manual(name = "", values = colors) +
         scale_y_continuous("likelihood", labels = NULL) +
-        theme(text = element_text(size = 14, family = "mono"),
+        theme(text = element_text(size = 14, family = "sans"),
               legend.position = "bottom",
               strip.background = element_blank(),
               panel.background = element_rect(fill = "grey98"),

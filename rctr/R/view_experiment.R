@@ -1,3 +1,20 @@
+
+analysis_horizon_ui = function(input, rv){
+  if(is.null(rv$cumulative_impact_data) ||
+     !any(complete.cases(rv$cumulative_impact_data))){
+    return(p(""))
+  }
+
+  numericInput(
+    "analysisHorizon",
+    "Impact Horizon", min = 1,
+    max = rv$cumulative_impact_data[, max(horizon)],
+    value = rv$cumulative_impact_data[, max(horizon)]
+  )
+
+}
+
+
 describe_experiment = function(experiment_record){
   paste(
     "               Experiment name:", experiment_record$name, "\n",
