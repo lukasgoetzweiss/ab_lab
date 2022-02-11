@@ -11,25 +11,49 @@ get_timeseries_impact_data = function(experiment_id,
                                       impact_variable,
                                       pre_period_days = 14){
 
-  ts_timestamp = glue(
-    "cast(ts.{Sys.getenv('timeseries_timestamp')} as TIMESTAMP)"
+  ts_vars = paste(
+    glue::glue(
+      "avg(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
+    ), collapse = ", "
   )
 
   return(pull_data(glue::glue(
-    " select {ts_timestamp}               as timestamp
-          ,  ea.treatment_id
-          ,  t.name                       as treatment
-          ,  avg(ts.{impact_variable})    as impact_metric
-        from {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
-        join {Sys.getenv('bq_dataSet')}.experiment_audience ea
-          on ea.unit_id = ts.{Sys.getenv('unit_pk')}
-         and ea.experiment_id = {experiment_id}
-        join {Sys.getenv('bq_dataSet')}.experiment e
-          on e.experiment_id = ea.experiment_id
-         and {ts_timestamp} > date_add(e.start_datetime, INTERVAL -{pre_period_days} DAY)
-         and {ts_timestamp} < e.end_datetime
-        join {Sys.getenv('bq_dataSet')}.treatment t
-          on t.treatment_id = ea.treatment_id
+    " with grid as (
+          select ea.unit_id           as unit_id
+              ,  t_ax.date
+              ,  ea.treatment_id
+              ,  t.name                       as treatment
+
+            from {Sys.getenv('bq_dataSet')}.experiment_audience ea
+
+      cross join (select *
+                    from UNNEST(
+                      GENERATE_DATE_ARRAY(
+                        date_add((select cast(start_datetime as date)
+                                    from {Sys.getenv('bq_dataSet')}.experiment
+                                   where experiment_id = {experiment_id}),
+                                 interval {-pre_period_days} day),
+                        current_date - 1
+                      )
+                    ) as date
+                  ) t_ax
+
+            join {Sys.getenv('bq_dataSet')}.treatment t
+              on t.treatment_id = ea.treatment_id
+
+           where ea.experiment_id = {experiment_id}
+      )
+
+      select g.date
+          ,  g.treatment_id
+          ,  g.treatment
+          ,  {ts_vars}
+        from grid g
+
+   left join {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
+          on g.unit_id = ts.{Sys.getenv('unit_pk')}
+         and g.date = ts.{Sys.getenv('timeseries_timestamp')}
+
        group by 1,2,3"
   )))
 }
@@ -44,7 +68,6 @@ get_timeseries_impact_data = function(experiment_id,
 #' @export
 plot_timeseries_impact = function(timeseries_impact_data,
                                   experiment_start,
-                                  impact_variable,
                                   colors = rctr_colors()){
 
   if(is.null(timeseries_impact_data)){
@@ -53,21 +76,27 @@ plot_timeseries_impact = function(timeseries_impact_data,
     )
   }
 
+  experiment_start = lubridate::as_date(experiment_start)
+
+  ts_melt = melt(timeseries_impact_data[, !"treatment_id"],
+                 id.vars = c("date", "treatment"))
+
   return(
-    ggplot(timeseries_impact_data, aes(timestamp, impact_metric, color = treatment)) +
-      geom_line(size = 1.5) +
+    ggplot(ts_melt, aes(date, value, color = treatment)) +
       geom_vline(linetype = "dashed", size = 1,
                  mapping = aes(color = "Intervention",
                                xintercept = experiment_start)) +
+      geom_line(size = 1.5) +
       guides(linetype = F) +
       xlab("") +
-      ylab(impact_variable) +
-      ggtitle(str_c("Impact on ", impact_variable)) +
+      ylab("") +
       scale_color_manual(name = "", values = colors) +
       theme(legend.position = "bottom",
             panel.background = element_blank(),
             panel.grid.major.y = element_line(color = "grey90"),
             panel.grid.major.x = element_line(color = "grey90"),
-            text = element_text(size = 20, family = "sans"))
+            text = element_text(size = 14, family = "sans"),
+            strip.background = element_blank()) +
+      facet_wrap(~variable, ncol = 1, scales = "free")
   )
 }

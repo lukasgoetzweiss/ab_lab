@@ -3,34 +3,37 @@ get_cumulative_impact_data = function(experiment_id,
                                       max_horizon = 14,
                                       horizon_step = 1){
 
-  ts_timestamp = glue(
-    "cast(ts.{Sys.getenv('timeseries_timestamp')} as TIMESTAMP)"
+  cm_vars = paste(
+    glue::glue(
+      "sum(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
+    ), collapse = ", "
   )
 
-  return(pull_data(glue(
+  return(pull_data(glue::glue(
 
       " with grid as (
       select ea.unit_id           as unit_id
           ,  ea.treatment_id
           ,  h.horizon
-        from ecommerce_example.experiment_audience ea
+          ,  e.start_datetime
+        from {Sys.getenv('bq_dataSet')}.experiment_audience ea
+        join {Sys.getenv('bq_dataSet')}.experiment e
+          on ea.experiment_id = e.experiment_id
   cross join (select horizon
                 from UNNEST(GENERATE_ARRAY(1, {max_horizon}, {horizon_step})) as horizon
              ) h
-       where ea.experiment_id = {experiment_id}
+       where e.experiment_id = {experiment_id}
     )
 
   select g.unit_id
       ,  g.treatment_id
       ,  g.horizon
-      ,  sum(ts.{impact_variable})           as {impact_variable}
+      ,  {cm_vars}
     from grid g
-    join ecommerce_example.experiment e
-      on e.experiment_id = 1
-    left join ecommerce_example.{Sys.getenv('timeseries_table')} ts
+    left join {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
       on g.unit_id = ts.{Sys.getenv('unit_pk')}
-     and ts.{Sys.getenv('timeseries_timestamp')} >= cast(e.start_datetime as date)
-     and ts.{Sys.getenv('timeseries_timestamp')} <= cast(date_add(e.start_datetime, INTERVAL g.horizon day) as date)
+     and ts.{Sys.getenv('timeseries_timestamp')} >= cast(g.start_datetime as date)
+     and ts.{Sys.getenv('timeseries_timestamp')} <= cast(date_add(g.start_datetime, INTERVAL g.horizon day) as date)
    group by 1,2,3;"
   )))
 
@@ -40,7 +43,10 @@ get_cumulative_impact_data = function(experiment_id,
 
 compute_cumulative_impact = function(cumulative_impact_data){
 
-  if(is.null(cumulative_impact_data)){ return(NULL) }
+  if(is.null(cumulative_impact_data) ||
+     !any(complete.cases(cumulative_impact_data))){
+    return(NULL)
+  }
 
   meas_vars = setdiff(
     names(cumulative_impact_data),
@@ -60,10 +66,12 @@ compute_cumulative_impact = function(cumulative_impact_data){
         data.table(
           var = j,
           horizon = i,
+          control = i_tt$estimate[1],
+          test = i_tt$estimate[2],
           p_val = i_tt$p.value,
           lift = i_tt$estimate[2] / i_tt$estimate[1] - 1,
-          ci_l = -i_tt$conf.int[1] / i_tt$estimate[1],
-          ci_u = -i_tt$conf.int[2] / i_tt$estimate[1]
+          ci_l = -i_tt$conf.int[2] / i_tt$estimate[1],
+          ci_u = -i_tt$conf.int[1] / i_tt$estimate[1]
         )
       )
     }
@@ -77,7 +85,8 @@ plot_cumulative_impact = function(cumulative_impact){
 
   if(is.null(cumulative_impact)){
     return(
-      ggplot() + ggtitle("") + theme(panel.background = element_blank())
+      ggplot() + ggtitle("Results will appear once experiment starts") +
+        theme(panel.background = element_blank())
     )
   }
 
@@ -92,9 +101,8 @@ plot_cumulative_impact = function(cumulative_impact){
             panel.grid.major.y = element_line(color = "grey90"),
             legend.position = "bottom",
             strip.background = element_blank(),
-            text = element_text(size = 20, family = "sans")) +
-      scale_x_continuous("Horizon (days)",
-                         breaks = seq(0, cumulative_impact[, max(horizon)], 7)) +
+            text = element_text(size = 14, family = "sans")) +
+      scale_x_continuous("Horizon (days)") +
       scale_y_continuous(name = "Lift", labels = scales::percent) +
       scale_fill_manual(name = "Stat Sign",
                         breaks = c(T, F),
@@ -107,6 +115,30 @@ plot_cumulative_impact = function(cumulative_impact){
 
 }
 
+format_cumulative_impact = function(cumulative_impact_data, horizon_select){
+
+  if(is.null(cumulative_impact_data)){
+    return(data.table())
+  } else {
+    return(
+      compute_cumulative_impact(cumulative_impact_data)[
+        horizon %in% horizon_select,
+        .(var,
+          control = signif(control, 4),
+          test = signif(test, 4),
+          lift = stringr::str_c(signif(test - control, 4),
+                                " (",
+                                scales::percent(test / control - 1, accuracy = 0.1),
+                                ")"),
+          conf_int = stringr::str_c(
+            "(", scales::percent(ci_l, accuracy = 0.1), ", ",
+            scales::percent(ci_u, accuracy = 0.1), ")"
+          )
+        )
+      ]
+    )
+  }
+}
 
 
 

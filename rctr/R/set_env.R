@@ -2,7 +2,7 @@ set_env = function(config_path = "~/rctr.yml"){
 
   config = yaml::read_yaml(config_path)
 
-  expected_fields = c("bq_project", "bq_user", "bq_dataset", "bq_verif",
+  expected_fields = c("bq_project", "bq_user", "bq_dataset",
                       "unit_pk", "segment_table", "timeseries_table",
                       "timeseries_timestamp")
 
@@ -21,6 +21,15 @@ set_env = function(config_path = "~/rctr.yml"){
   Sys.setenv(timeseries_table = config$timeseries_table)
   Sys.setenv(timeseries_timestamp = config$timeseries_timestamp)
 
+  # WE CAN AUTH bigrquery WITH ENV VAR
   # bigrquery::bq_auth(config$bq_user, cache = T)
-  bigQueryR::bqr_auth(json_file = config$bq_verif)
+
+  if(!is.null(config$bq_verif)){
+    message("authenticating bigQueryR using json file")
+    bigQueryR::bqr_auth(json_file = config$bq_verif)
+  } else {
+    message("authenticating bigQueryR using email")
+    bigQueryR::bqr_auth(email = config$bq_user)
+  }
+
 }

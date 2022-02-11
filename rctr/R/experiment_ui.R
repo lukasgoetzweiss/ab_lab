@@ -6,15 +6,12 @@
 #' @export
 #'
 #' @examples
-experiment_ui = function(experiment, impact_variables){
+experiment_ui = function(impact_variables){
   tabPanel(
     "Experiment", value = "experiment",
     fluidRow(
       column(3,
-             selectInput(inputId = "selectedExperiment",
-                         label = "Select Experiment",
-                         choices = experiment[, name],
-                         multiple = F),
+             uiOutput("selectExperimentUI"),
              actionButton("createExperiment",
                           "Create new experiment",
                           icon = icon("plus"))
@@ -25,30 +22,48 @@ experiment_ui = function(experiment, impact_variables){
     ),
     hr(),
     fluidRow(
-      column(5,
+      column(3,
              selectInput("impactVariable",
                          "Select Impact Variable",
                          choices = impact_variables,
-                         multiple = F),
-             actionButton("loadImpact", "Measure impact"),
-             p("Results"),
-             verbatimTextOutput("impactSummary")),
-      column(7,
+                         multiple = T),
+             actionButton("loadImpact", "Measure impact")
+      ),
+      column(9,
              tabsetPanel(
                tabPanel(
                  "Time Series",
                  plotOutput("timeseriesPlot")
                ),
                tabPanel(
+                 "Measurement",
+                 DTOutput("cumulativeMeasurementDT"),
+                 uiOutput("analysisHorizonUI")
+               ),
+               tabPanel(
                  "Cumulative Impact",
                  plotOutput("cumulativePlot")
                ),
                tabPanel(
-                 "Population",
-                 plotOutput("populationPlot")
+                 "Distribution",
+                 plotOutput("populationPlot"),
+                 radioButtons("popVsEst", "",
+                              choices = c("Population", "Mean Estimate"),
+                              selected = "Population",
+                              inline = T)
                )
              )
       )
-    )
+    ),
+
   )
+}
+
+select_experiment_ui = function(rv){
+  return(renderUI(
+    selectInput(inputId = "selectedExperiment",
+                label = "Select Experiment",
+                choices = rv$experiment[, name],
+                multiple = F)
+  ))
 }

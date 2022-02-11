@@ -19,26 +19,27 @@ options(shiny.sanitize.errors = FALSE)
 
 run_locally = T
 if(run_locally){
-  devtools::load_all("../rctr/")
-  set_env("~/exampleCorp/ec/context.yml")
+  devtools::load_all("~/ab_lab/rctr/")
+  # set_env("~/exampleCorp/ec/context.yml")
+  set_env("~/ab_lab_mnt_lummo/context.yml")
 } else {
   devtools::load_all("/src/rctr/rctr")
   set_env("/srv/context.yml")
 }
 
-# schema_tbls = ddl.check()
+schema_tbls = ddl.check()
 
 #### global data ----
 
 # # query data from project schema
-# treatment = get_table("treatment")
-# audience = get_table("audience")
-# audience_filter = get_table("audience_filter")
-# experiment = get_table("experiment")
-# experiment_treatment = get_table("experiment_treatment")
-# experiment_audience = get_table("experiment_audience")
-#
-# user = get_table(Sys.getenv("segment_table"))
+treatment = get_table("treatment")
+audience = get_table("audience")
+audience_filter = get_table("audience_filter")
+experiment = get_table("experiment")
+experiment_treatment = get_table("experiment_treatment")
+experiment_audience = get_table("experiment_audience")
+
+user = get_table(Sys.getenv("segment_table"))
 
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(
@@ -67,7 +68,7 @@ ui = navbarPage(
   tags$head(tags$style(HTML('* {font-family: "Verdana"};'))),
 
   # experiment
-  experiment_ui(experiment, impact_variables),
+  experiment_ui(impact_variables),
 
   # treatment
   treatment_ui(),
@@ -188,6 +189,9 @@ server <- function(input, output, session) {
   # . audienceFilterVariableOk ----
   audienceFilterVariableOkObs(input, rv)
 
+  # . resetAudienceFilter ----
+  observeEvent(input$resetAudienceFilter,{ rv$audienceFilter = data.table() })
+
   # . createAudienceModal ----
   observeEvent(input$createAudience,{showModal(createAudienceModal())})
 
@@ -236,6 +240,10 @@ server <- function(input, output, session) {
 
   # VIEW EXPERIMENT ----
 
+  # . select an experiment ----
+
+  output$selectExperimentUI = select_experiment_ui(rv)
+
   # . experimentSummary ----
 
   # this should eventually include all of the information about the experiment
@@ -270,23 +278,36 @@ server <- function(input, output, session) {
     rv$cumulative_impact_data = get_cumulative_impact_data(
       experiment_id = rv$experiment[name == input$selectedExperiment,
                                     experiment_id],
-      impact_variable = input$impactVariable
+      impact_variable = input$impactVariable,
+      max_horizon = as.numeric(
+        (today() - days(1) -
+        rv$experiment[name == input$selectedExperiment,
+                      as_date(start_datetime)])
+      )
     )
     removeModal()
   })
 
   # . impactSummary ----
-  output$impactSummary <- renderText(
-    measure_user_impact(rv$user_impact_data)
+  # output$impactSummary <- renderText(
+  #   measure_user_impact(rv$user_impact_data)
+  # )
+
+  output$analysisHorizonUI = renderUI(analysis_horizon_ui(input, rv))
+
+  # . impact table ----
+
+  output$cumulativeMeasurementDT <- renderDT(
+    format_cumulative_impact(rv$cumulative_impact_data,
+                             horizon_select = input$analysisHorizon)
   )
 
-  # . impactPlots ----
+  # . impact plots ----
 
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
-                            experiment[name == input$selectedExperiment,
-                                       start_datetime],
-                           rv$impactVariableLoaded)
+                           rv$experiment[name == input$selectedExperiment,
+                                         start_datetime])
   )
 
   output$cumulativePlot <- renderPlot(
@@ -294,7 +315,7 @@ server <- function(input, output, session) {
   )
 
   output$populationPlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, rv$impactVariableLoaded, F)
+    plot_distribution(rv$user_impact_data, input$popVsEst == "Mean Estimate")
   )
 
 }
