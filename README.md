@@ -76,8 +76,6 @@ Make sure you have [docker](https://docs.docker.com/) installed on your machine 
 ```
 docker build -t test .
 
-export GOOGLE_APPLICATION_CREDENTIALS=/srv/hazel-champion-318400-412f14ac362f.json
-
 docker run --rm \
   -e GOOGLE_APPLICATION_CREDENTIALS \
   -p 80:80 \
