@@ -1,14 +1,14 @@
 # rctr
 
-rctr is an open source web app to help data scientists orchestrate and report on targeted randomized experiments. rctr is built on R shiny and BigQuery and can be setup in under 30 minutes. The underlying experimentation model is highly general and can be applied to experiments in wide variety of context. 
+rctr is an open source web app to help data scientists orchestrate and report on targeted randomized experiments. rctr is built on R shiny and BigQuery and can be setup in under 30 minutes. The underlying experimentation model is highly general and can be applied to experiments in a wide variety of context. 
 
 ## Experimentation model
 
 There are four terms to understand to begin running experiments in rctr:
 
-1. **Unit of observation** - in most contexts this will be a user or potential customer
+1. **Unit of observation** - in most business contexts this will be a user or potential customer
 2. **Audience** - a set of units of observation defined by some filtering logic
-3. **Treatment** - an specific action, policy, or intervention put forward towards a unit of observation
+3. **Treatment** - a specific action, policy, or intervention put forward towards a unit of observation
 4. **Experiment** - a set of treatments applied to an audience over a specified time period
 
 ## Setup
@@ -25,7 +25,7 @@ Before starting, identify your unit of observation. In what follows, let's assum
 
 Next, create a new BigQuery data set and create two views (or tables):
 
-1. Define dimensions that you may want to use while targeting audiences
+1. Define dimensions to use when targeting audiences
   
 ```
   create view <my_bq_data_set>.customers as (
@@ -39,7 +39,7 @@ Next, create a new BigQuery data set and create two views (or tables):
 
 Note that you can name your table anything (you'll specify the table name when setting up the config file)
 
-2. Define time series metrics that you will want to measure
+2. Define time series metrics that you want to measure
 
 ```
   create view <my_bq_data_set>.customer_transactions as (
@@ -55,8 +55,7 @@ Again, feel free to name this table whatever makes sense for your application. T
 
 ### Setup config file
 
-Next, create a file named `context.yml` anywhere on your machine based on the template below:
-
+Next, create a file named `context.yml` anywhere on your machine using the template below:
 
 ```
 bq_project: <your bq project name>
@@ -72,7 +71,7 @@ timeseries_timestamp: <name of datefield in timeseries_table, e.g., date>
 
 ### Run docker image
 
-Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command in bash to build a local docker image and
+Make sure you have [docker](https://docs.docker.com/) installed on your machine and run the following command to build and run a local docker image
 
 ```
 docker build -t test .
@@ -86,5 +85,5 @@ docker run --rm \
   test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
 ```
 
-
+You're all setup! You can now view the app at http://localhost:80
 
