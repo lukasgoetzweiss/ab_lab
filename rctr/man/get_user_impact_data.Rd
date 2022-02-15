@@ -4,19 +4,14 @@
 \alias{get_user_impact_data}
 \title{Pulls user-level data to analyze test results}
 \usage{
-get_user_impact_data(
-  dataset = Sys.getenv("bq_dataSet"),
-  experiment_id,
-  impact_variable,
-  pre_period_days = 14
-)
+get_user_impact_data(experiment_id, impact_variable, pre_period_days = 14)
 }
 \arguments{
-\item{dataset}{Big Query dataset}
-
 \item{impact_variable}{variable to be measured}
 
 \item{pre_period_days}{how far into the past to pull pre-period data}
+
+\item{dataset}{Big Query dataset}
 
 \item{experiment_name}{experiment to analyze}
 }

@@ -1,5 +1,7 @@
 # this file contains functions to support viewing audiences
 
+# when an audience is selected on the view tab, pull filter logic and format as
+# a sql statement
 audienceRowsSelectedObs = function(input, output, rv){
   observeEvent(input$audience_rows_selected, {
     if(input$audience_rows_selected > 0){
@@ -38,6 +40,5 @@ format_audience_query = function(x){
    where {where_claus}",
       .trim = F
     )
-
   }
 }

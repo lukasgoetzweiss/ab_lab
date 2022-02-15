@@ -1,6 +1,7 @@
 
 # overhead ----
 
+# define built in tables
 ddl.built_in_tables = function(){
   tbls = c(
       "treatment",
@@ -13,6 +14,7 @@ ddl.built_in_tables = function(){
   return(tbls)
 }
 
+# get user-defined tables
 ddl.user_defined_tables = function(){
   tbls = c(
     Sys.getenv("segment_table"),
@@ -21,7 +23,10 @@ ddl.user_defined_tables = function(){
   return(tbls)
 }
 
+# function to check if DB is setup correctly, if a table is missing this will
+# attempt to create
 ddl.check = function(hard_reset = F){
+
   message(Sys.time(), ": checking tables in ", Sys.getenv('bq_dataSet'))
 
   # check built-in tables
@@ -48,7 +53,10 @@ ddl.check = function(hard_reset = F){
     } else {
       message(Sys.time(), ": did not found ", built_in_tables[i],
               " creating now ...")
+
+      # run appropriate ddl functino
       get(paste("ddl.", i_tbl, sep = ""))()
+
       # add table to list of tables in schema
       schema_tbls = c(schema_tbls, i_tbl)
     }
@@ -71,6 +79,8 @@ ddl.check = function(hard_reset = F){
 }
 
 # table ddl ----
+
+# this section defines built in tables both in sql and using bigQueryR
 
 ddl.treatment = function(){
 

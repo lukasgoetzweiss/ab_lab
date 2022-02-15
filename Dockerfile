@@ -24,20 +24,18 @@ RUN Rscript -e "install.packages('DT')"
 RUN Rscript -e "install.packages('googledrive')"
 RUN Rscript -e "install.packages('readr')"
 
+# set up local directories
 RUN mkdir /src
 RUN mkdir /src/rctr
 ADD ./ /src/rctr/
+
+# install rctr
 RUN Rscript -e "devtools::install('/src/rctr/rctr')"
 
 # copy the app directory and config file into the image
 COPY ./act_app/* /srv/shiny-server/
-
 COPY shiny-server.conf /etc/shiny-server/
 
-# EXPOSE 3838
-
-# run app
-# CMD ["/usr/bin/shiny-server"]
-
+# expose port and run the app
 EXPOSE 80
 CMD ["R", "-e", "library(shiny); source('/src/rctr/act_app/app.R')"]

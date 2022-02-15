@@ -1,4 +1,4 @@
-#' Utility function for easy modal dialogs
+#' Utility function for easy modal dialog
 #'
 #' @param text Test to display in the modal
 #'

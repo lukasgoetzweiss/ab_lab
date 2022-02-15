@@ -10,6 +10,7 @@ push_data(
   dataSet = Sys.getenv("bq_dataSet"),
   projectID = Sys.getenv("bq_projectID"),
   writeDisposition = "WRITE_APPEND",
+  create = "CREATE_NEVER",
   schema = NULL
 )
 }

@@ -16,5 +16,6 @@ data.table populated with query results
 }
 \description{
 Evaluate sql statement and return result as a data.table. Ensure that you
-have authorized with BigQuery e.g., with bigrquery::bq_auth().
+have authorized with BigQuery e.g., with bigrquery::bq_auth(). If there is an
+error will retry 3 times
 }

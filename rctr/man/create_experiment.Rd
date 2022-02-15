@@ -5,26 +5,26 @@
 \title{Create record in experiment table}
 \usage{
 create_experiment(
-  name,
+  input,
+  rv,
+  session,
   audience_id,
-  experiment_treatment,
-  start_datetime,
-  end_datetime,
+  treatment_id,
   dataset = Sys.getenv("bq_dataSet")
 )
 }
 \arguments{
-\item{name}{experiment name}
-
 \item{audience_id}{audience to target with experiment}
+
+\item{dataset}{BigQuery dataset}
+
+\item{name}{experiment name}
 
 \item{experiment_treatment}{treatments in the experiment, with weightings}
 
 \item{start_datetime}{when the experiment will start}
 
 \item{end_datetime}{when the experiment will end}
-
-\item{dataset}{BigQuery dataset}
 }
 \value{
 experiment_id

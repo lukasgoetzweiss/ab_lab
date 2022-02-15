@@ -2,7 +2,7 @@
 % Please edit documentation in R/create_audience.R
 \name{create_audience}
 \alias{create_audience}
-\title{Create records in audience table and audience_filter}
+\title{Create records in audience and audience_filter tables}
 \usage{
 create_audience(name, audience_filter, dataset = Sys.getenv("bq_dataSet"))
 }
@@ -17,5 +17,5 @@ create_audience(name, audience_filter, dataset = Sys.getenv("bq_dataSet"))
 audience_id
 }
 \description{
-Create records in audience table and audience_filter
+Create records in audience and audience_filter tables
 }

@@ -72,7 +72,7 @@ create_experiment = function(input, rv, session,
   # create experiment treatment
   message(Sys.time(), ": creating experiment_treatment records")
 
-  # determine next experiment_treatment_id
+  # determine next experiment_treatment_ids
   experiment_treatment_id = pull_data(glue::glue(
     "select max(experiment_treatment_id)  from {dataset}.experiment_treatment"
   ))$f0_[1]
@@ -80,6 +80,7 @@ create_experiment = function(input, rv, session,
 
   experiment_treatment_id = experiment_treatment_id + (1:2)
 
+  # create new experiment_treatment records
   experiment_treatment_records = data.table(
     experiment_treatment_id = as.integer(experiment_treatment_id),
     experiment_id = as.integer(experiment_id),
@@ -90,12 +91,11 @@ create_experiment = function(input, rv, session,
   )
 
   # create randomized audience
-
-  # push data to experiment_audience
   experiment_audience_records = randomize_new_experiment_segment(
     rv, input, experiment_id
   )
 
+  # write everything to the BD
   message(now(), ": writing to experiment")
   push_data("experiment", experiment_record)
 
@@ -105,7 +105,7 @@ create_experiment = function(input, rv, session,
   message(now(), " writing to experiment_audience")
   push_data("experiment_audience", experiment_audience_records)
 
-  # refresh local instances of experiment and experiment_treatment
+  # refresh local instances of experiment tables
   rv$experiment = get_table("experiment")
   rv$experimentTreatment = get_table("experiment_treatment")
   rv$experimentAudience = get_table("experiment_audience")
@@ -113,7 +113,6 @@ create_experiment = function(input, rv, session,
   return(experiment_id)
 
 }
-
 
 randomize_new_experiment_segment = function(rv, input, experiment_id){
 

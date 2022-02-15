@@ -1,8 +1,13 @@
+# this file contains functions to pull, analyze, and visualize data on the
+# cumulative impact of an experiments
+
+# pulls cumulative impact data from DB
 get_cumulative_impact_data = function(experiment_id,
                                       impact_variable,
                                       max_horizon = 14,
                                       horizon_step = 1){
 
+  # format impact variables as a sql statement
   cm_vars = paste(
     glue::glue(
       "sum(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
@@ -39,24 +44,26 @@ get_cumulative_impact_data = function(experiment_id,
 
 }
 
-# cumulative_impact_data = get_cumulative_impact_data(1, 'units_sold')
-
+# analyzes cumulative impact data, computes lift, significance, and confidence
+# intervals
 compute_cumulative_impact = function(cumulative_impact_data){
 
+  # check if data is valide
   if(is.null(cumulative_impact_data) ||
      !any(complete.cases(cumulative_impact_data))){
     return(NULL)
   }
 
+  # get a list of metrics to measure
   meas_vars = setdiff(
     names(cumulative_impact_data),
     c("unit_id", "treatment_id", "horizon")
   )
 
-  # run a t test for each horizon-variable pair
+  # run a t test for each horizon-variable pair and store result
   meas_data = NULL
   for(j in meas_vars){
-    for(i in 1:cumulative_impact_data[, max(horizon)]){
+    for(i in cumulative_impact_data[, unique(horizon)]){
       i_tt = t.test(
         cumulative_impact_data[treatment_id == 1 & horizon == i, get(j)],
         cumulative_impact_data[treatment_id != 1 & horizon == i, get(j)]
@@ -81,8 +88,10 @@ compute_cumulative_impact = function(cumulative_impact_data){
 
 }
 
+# visualize results of cumulative impact analysis
 plot_cumulative_impact = function(cumulative_impact){
 
+  # return empty plot if cumulative impact data hasn't been loaded
   if(is.null(cumulative_impact)){
     return(
       ggplot() + ggtitle("Results will appear once experiment starts") +
@@ -115,6 +124,7 @@ plot_cumulative_impact = function(cumulative_impact){
 
 }
 
+# formats cumulative impact analysis result for a specified horizon
 format_cumulative_impact = function(cumulative_impact_data, horizon_select){
 
   if(is.null(cumulative_impact_data)){
@@ -139,9 +149,3 @@ format_cumulative_impact = function(cumulative_impact_data, horizon_select){
     )
   }
 }
-
-
-
-
-
-

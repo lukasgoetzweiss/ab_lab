@@ -1,3 +1,10 @@
+#### description ----
+# This file combines elements defined in the rctr package to create the main
+# shiny web app for the project.
+#
+# To run the app locally you will need to load rctr and set the environment
+# yourself (see set env section)
+
 #### set env ----
 
 # shiny libraries
@@ -15,23 +22,32 @@ library(stringr)
 library(ggplot2)
 library(scales)
 
+# options
 options(shiny.sanitize.errors = FALSE)
 
+# load rctr and configure environment variables with rctr::set_env()
 run_locally = T
 if(run_locally){
-  devtools::load_all("~/ab_lab/rctr/")
-  # set_env("~/exampleCorp/ec/context.yml")
-  set_env("~/ab_lab_mnt_lummo/context.yml")
+  if(!("rctr" %in% .packages())){
+    stop("Please load rctr and set environment by running ",
+         "devtools::load_all('<path>/ab_lab/rctr')")
+  }
+  if(Sys.getenv("bq_dataSet") == ""){
+    stop("Please set environment by running ",
+         "rctr::set_env(<path to context.yml>) (see readme)")
+  }
 } else {
   devtools::load_all("/src/rctr/rctr")
   set_env("/srv/context.yml")
 }
 
+# check that schema is set up correctly, if any tables are missing this function
+# will try to create them
 schema_tbls = ddl.check()
 
 #### global data ----
 
-# # query data from project schema
+# query common data structure tables from project schema
 treatment = get_table("treatment")
 audience = get_table("audience")
 audience_filter = get_table("audience_filter")
@@ -39,8 +55,10 @@ experiment = get_table("experiment")
 experiment_treatment = get_table("experiment_treatment")
 experiment_audience = get_table("experiment_audience")
 
+# query data integration tables from project schema
 user = get_table(Sys.getenv("segment_table"))
 
+# check if time series table is setup, if so load impact variable options
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(
     names(get_table(Sys.getenv("timeseries_table"), limit = 1)),
@@ -50,18 +68,20 @@ if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = c("(set up timeseries table)")
 }
 
-# prepare
+# prepare data
 metadata = create_user_metadata(user)
 user[, incl := T]
 
 #### UI ----
 
+# set css elements
 css <- HTML(" body {
-    background-color: #DDDDDD;
+    background-color: #DDDD00;
             }")
 
+# define main UI
 ui = navbarPage(
-  "rctr",
+  title = "rctr",
   id = "mainNav",
   theme = shinytheme("flatly"),
   selected = "experiment",
@@ -82,10 +102,8 @@ ui = navbarPage(
 server <- function(input, output, session) {
 
   # initialize ----
-
   rv = reactiveValues()
 
-  # * ----
   # * * * * TREATMENT * * * * ----
 
   # reactive values ----
@@ -98,15 +116,12 @@ server <- function(input, output, session) {
   createTreatmentObs(input)
   createTreatmentObsOk(input, rv)
 
-  # * ----
   # * * * *  AUDIENCE * * * * ----
 
   # reactive values ----
 
-  # local copy of audience table
+  # local copy of audience tables
   rv$audience = copy(audience)
-
-  # local copy of audience_filter table
   rv$audienceFilterAll = copy(audience_filter)
 
   # local audience filter for creating new audiences
@@ -123,16 +138,18 @@ server <- function(input, output, session) {
     return(u)
   })
 
-  # VIEW AUDIENCE ----
+  # . view ----
 
-  # audience
+  # . . outputs ----
   output$audience <- renderDT(rv$audience[, .(`Audience Name` = name)],
                               selection = 'single')
 
-  # audience_rows_selected
+  # . . observers ----
   audienceRowsSelectedObs(input, output, rv)
 
-  # CREATE AUDIENCE ----
+  # . create ----
+
+  # . . outputs ----
 
   # audienceFilter
   output$audienceFilterSql = renderText(
@@ -148,7 +165,7 @@ server <- function(input, output, session) {
     audienceFilterVariableRangeUI(input, metadata)
   })
 
-  # . new filter plots ----
+  # new filter plots
 
   # audienceFilterMetricPlot
   output$audienceFilterMetricPlot = renderPlot({
@@ -160,7 +177,7 @@ server <- function(input, output, session) {
     create_audience_filter_variable_plot(input, rv)
   })
 
-  # . audienceCreateUI ----
+  # audienceCreateUI
   output$audienceCreateUI = renderUI({
     if(nrow(rv$audienceFilter)){
       return(
@@ -174,33 +191,32 @@ server <- function(input, output, session) {
     }
   })
 
-  # events ----
+  # . . observers ----
 
 
-  # . audienceFilterModal ----
-
+  # audienceFilterModal
   observeEvent(input$createAudienceFilter, {
     showModal(audienceFilterModal(input, output, metadata))
   })
 
-  # . audienceFilterMetricOk ----
+  # audienceFilterMetricOk
   audienceFilterMetricOkObs(input, rv)
 
-  # . audienceFilterVariableOk ----
+  # audienceFilterVariableOk
   audienceFilterVariableOkObs(input, rv)
 
-  # . resetAudienceFilter ----
+  # resetAudienceFilter
   observeEvent(input$resetAudienceFilter,{ rv$audienceFilter = data.table() })
 
-  # . createAudienceModal ----
+  # createAudienceModal
   observeEvent(input$createAudience,{showModal(createAudienceModal())})
 
-  # . createAudienceOk ----
-
+  # createAudienceOk
   createAudienceOkObs(input, rv, session)
 
-  # * ----
+
   # * * * * EXPERIMENT * * * * ----
+
   # reactive values ----
 
   # local copy of experiment tables
@@ -208,11 +224,11 @@ server <- function(input, output, session) {
   rv$experimentTreatment = copy(experiment_treatment)
   rv$experimentAudience = copy(experiment_audience)
 
-  # CREATE EXPERIMENT ----
+  # . create ----
 
-  # Survey ----
+  # . . observers ----
+
   # (functions defined in experiment_creation_survey.R)
-
   observeEvent(
     input$createExperiment,
     showModal(modalDialog(create_experiment_ui(rv, impact_variables),
@@ -220,8 +236,7 @@ server <- function(input, output, session) {
                           size = "l"))
   )
 
-  # . click through ----
-
+  # click through
   observeEvent(input$newExperimentSave, {
     removeModal()
     showModal(loadingModal("Creating experiment ..."))
@@ -238,16 +253,14 @@ server <- function(input, output, session) {
     showModal(modalDialog(p("Experiment created"), easyClose = T))
   })
 
-  # VIEW EXPERIMENT ----
+  # . view ----
 
-  # . select an experiment ----
+  # . . outputs ----
 
+  # selectExperimentUI
   output$selectExperimentUI = select_experiment_ui(rv)
 
-  # . experimentSummary ----
-
-  # this should eventually include all of the information about the experiment
-  # setup from the ECS
+  # experimentSummary
   output$experimentSummary <- renderText(
     get_experiment_summary(input$selectedExperiment,
                            experiment_audience = rv$experimentAudience,
@@ -255,8 +268,33 @@ server <- function(input, output, session) {
                            treatment = rv$treatment)
   )
 
-  # . loadImpact ----
+  # analysisHorizonUI
+  output$analysisHorizonUI = renderUI(analysis_horizon_ui(input, rv))
 
+  # impact table
+  output$cumulativeMeasurementDT <- renderDT(
+    format_cumulative_impact(rv$cumulative_impact_data,
+                             horizon_select = input$analysisHorizon)
+  )
+
+  # impact plots
+  output$timeseriesPlot <- renderPlot(
+    plot_timeseries_impact(rv$timeseries_impact_data,
+                           rv$experiment[name == input$selectedExperiment,
+                                         start_datetime])
+  )
+
+  output$cumulativePlot <- renderPlot(
+    plot_cumulative_impact(compute_cumulative_impact(rv$cumulative_impact_data))
+  )
+
+  output$populationPlot <- renderPlot(
+    plot_distribution(rv$user_impact_data, input$popVsEst == "Mean Estimate")
+  )
+
+  # . . observers ----
+
+  # loadImpact
   observeEvent(input$loadImpact, {
     showModal(loadingModal("Loading unit-wise observations ..."))
     rv$impactVariableLoaded = copy(input$impactVariable)
@@ -288,41 +326,9 @@ server <- function(input, output, session) {
     removeModal()
   })
 
-  # . impactSummary ----
-  # output$impactSummary <- renderText(
-  #   measure_user_impact(rv$user_impact_data)
-  # )
-
-  output$analysisHorizonUI = renderUI(analysis_horizon_ui(input, rv))
-
-  # . impact table ----
-
-  output$cumulativeMeasurementDT <- renderDT(
-    format_cumulative_impact(rv$cumulative_impact_data,
-                             horizon_select = input$analysisHorizon)
-  )
-
-  # . impact plots ----
-
-  output$timeseriesPlot <- renderPlot(
-    plot_timeseries_impact(rv$timeseries_impact_data,
-                           rv$experiment[name == input$selectedExperiment,
-                                         start_datetime])
-  )
-
-  output$cumulativePlot <- renderPlot(
-    plot_cumulative_impact(compute_cumulative_impact(rv$cumulative_impact_data))
-  )
-
-  output$populationPlot <- renderPlot(
-    plot_distribution(rv$user_impact_data, input$popVsEst == "Mean Estimate")
-  )
-
 }
 
 #### run ----
-
-# shinyApp(ui, server)
 
 app <- shinyApp(ui = ui, server = server)
 runApp(app, host ="0.0.0.0", port = 80, launch.browser = FALSE)
