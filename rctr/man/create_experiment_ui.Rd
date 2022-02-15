@@ -4,7 +4,7 @@
 \alias{create_experiment_ui}
 \title{create_experiment_ui}
 \usage{
-create_experiment_ui()
+create_experiment_ui(rv, impact_variables)
 }
 \description{
 UI for experiment creation survey

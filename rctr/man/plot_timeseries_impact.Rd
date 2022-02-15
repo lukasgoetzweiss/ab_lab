@@ -6,20 +6,16 @@
 \usage{
 plot_timeseries_impact(
   timeseries_impact_data,
-  experiment_name,
   experiment_start,
-  impact_variable,
-  colors = c("#F18E7E", "#69AEDB", "grey10")
+  colors = rctr_colors()
 )
 }
 \arguments{
 \item{timeseries_impact_data}{output of get_timeseries_impact_data}
 
-\item{experiment_name}{experiment name (for plot)}
+\item{colors}{line colors for plot}
 
 \item{impact_variable}{impact variable name (for plot_)}
-
-\item{colors}{line colors for plot}
 }
 \value{
 

@@ -58,7 +58,7 @@ experiment_audience = get_table("experiment_audience")
 # query data integration tables from project schema
 user = get_table(Sys.getenv("segment_table"))
 
-# check if timeseries table is setup, and if so load impact variable options
+# check if time series table is setup, if so load impact variable options
 if(Sys.getenv("timeseries_table") %in% schema_tbls){
   impact_variables = setdiff(
     names(get_table(Sys.getenv("timeseries_table"), limit = 1)),

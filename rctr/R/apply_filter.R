@@ -6,6 +6,7 @@
 #' @return user data appended with incl column.
 #' @import data.table
 #' @export
+
 apply_filter = function(user, filter_params){
 
   message("applying filter ", filter_params)

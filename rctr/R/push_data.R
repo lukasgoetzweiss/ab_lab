@@ -22,6 +22,9 @@ push_data = function(tableId, upload_data,
                      create = "CREATE_NEVER",
                      schema = NULL){
 
+  # run this in a tryCatch, sometimes the job cannot be found by bqr_upload_data
+  # after pushing data, resulting in an error even though data is successfully
+  # written
   tryCatch({
     tmp = bigQueryR::bqr_upload_data(
       projectId = projectID,

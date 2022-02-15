@@ -1,89 +1,50 @@
-# This file contains functions to create new audiences and manage filter for
+# This file contains functions to create new audiences and manage filters for
 # new audience creation
 
-#' Create records in audience table and audience_filter
-#'
-#' @param name Audience name
-#' @param audience_filter Audience filters
-#' @param dataset BigQuery dataset
-#'
-#' @return audience_id
-#' @import data.table
-#' @export
-create_audience = function(name, audience_filter,
-                           dataset = Sys.getenv("bq_dataSet")){
-  audience_id = pull_data(glue::glue(
-    "select max(audience_id)  from {dataset}.audience"
-  ))$f0_[1] + 1
-  if(is.na(audience_id)){ audience_id = 1 }
+# AUDIENCE FILTER ----
 
-  message("creating audience ", name, ", audience_id = ", audience_id)
+# . plotting ----
 
-  push_data(
-    "audience",
-    data.table(
-      audience_id = as.integer(audience_id),
-      name = name,
-      create_datetime = Sys.time()
-    )
-  )
+create_audience_filter_metric_plot = function(input, rv){
 
-  audience_filter_id = pull_data(glue::glue(
-    "select max(audience_filter_id)  from {dataset}.audience_filter"
-  ))$f0_[1]
-  if(is.na(audience_filter_id)){ audience_filter_id = 0 }
+  rv$user()[, incl_margin := get(input$audienceFilterMetric) %between% input$audienceFilterMetricRange]
+  rv$user()[is.na(incl_margin), incl_margin := FALSE]
 
-  audience_filter_id = audience_filter_id + (1:audience_filter[, .N])
+  ggplot(rv$user(), aes(get(input$audienceFilterMetric),
+                        fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
+    geom_histogram(stat="count") +
+    ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) +
+    scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"),
+                      breaks = c("Included", "Removed", "Filtered by prior filter"),
+                      name = "") +
+    xlab(input$audienceFilterMetric) +
+    ylab("Users") +
+    theme(panel.background = element_blank(),
+          panel.grid.major.y = element_line(color = "grey90"),
+          legend.position = "bottom")
 
-  push_data(
-    "audience_filter",
-    audience_filter[, .(audience_filter_id = as.integer(audience_filter_id),
-                        audience_id = as.integer(audience_id),
-                        filter_on,
-                        comparator_sql,
-                        comparator_params,
-                        create_datetime = Sys.time())]
-  )
-
-  return(audience_id)
 }
 
-audienceFilterModal <- function(input, output, metadata) {
-  modalDialog(
-    tabsetPanel(
-      # metric tab ----
-      tabPanel(
-        "Metric",
-        selectInput(
-          "audienceFilterMetric",
-          "Select Metric",
-          choices = metadata$user_metric[, name],
-          selected = metadata$user_metric[1, name]
+create_audience_filter_variable_plot = function(input, rv){
 
-        ),
-        uiOutput("audienceFilterMetricRange"),
-        plotOutput("audienceFilterMetricPlot"),
-        modalButton("Cancel"),
-        actionButton("audienceFilterMetricOk", "OK")
-      ),
-      # variable tab ----
-      tabPanel(
-        "Variable",
-        selectInput(
-          "audienceFilterVariable",
-          "Select Variable",
-          choices = metadata$user_variable[, name],
-          selected = metadata$user_variable[1, name]
+  rv$user()[, incl_margin := get(input$audienceFilterVariable) %in% input$audienceFilterVariableSelected]
 
-        ),
-        uiOutput("audienceFilterVariableRange"),
-        plotOutput("audienceFilterVariablePlot"),
-        modalButton("Cancel"),
-        actionButton("audienceFilterVariableOk", "OK")
-      )
-    )
-  )
+  ggplot(rv$user(), aes(get(input$audienceFilterVariable),
+                        fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
+    geom_histogram(stat="count") +
+    ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) +
+    scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"),
+                      breaks = c("Included", "Removed", "Filtered by prior filter"),
+                      name = "") +
+    xlab(input$audienceFilterMetric) +
+    ylab("Users") +
+    coord_flip() +
+    theme(panel.background = element_blank(),
+          panel.grid.major.y = element_line(color = "grey90"),
+          legend.position = "bottom")
+
 }
+# . UI  ----
 
 audienceFilterMetricRangeUI = function(input, metadata){
 
@@ -115,6 +76,103 @@ audienceFilterVariableRangeUI = function(input, metadata){
   )
 }
 
+# . modals ----
+
+audienceFilterModal <- function(input, output, metadata) {
+  modalDialog(
+    tabsetPanel(
+      # metric tab
+      tabPanel(
+        "Metric",
+        selectInput(
+          "audienceFilterMetric",
+          "Select Metric",
+          choices = metadata$user_metric[, name],
+          selected = metadata$user_metric[1, name]
+
+        ),
+        uiOutput("audienceFilterMetricRange"),
+        plotOutput("audienceFilterMetricPlot"),
+        modalButton("Cancel"),
+        actionButton("audienceFilterMetricOk", "OK")
+      ),
+
+      # variable tab
+      tabPanel(
+        "Variable",
+        selectInput(
+          "audienceFilterVariable",
+          "Select Variable",
+          choices = metadata$user_variable[, name],
+          selected = metadata$user_variable[1, name]
+
+        ),
+        uiOutput("audienceFilterVariableRange"),
+        plotOutput("audienceFilterVariablePlot"),
+        modalButton("Cancel"),
+        actionButton("audienceFilterVariableOk", "OK")
+      )
+    )
+  )
+}
+
+# AUDIENCE ----
+
+
+#' Create records in audience and audience_filter tables
+#'
+#' @param name Audience name
+#' @param audience_filter Audience filters
+#' @param dataset BigQuery dataset
+#'
+#' @return audience_id
+#' @import data.table
+#' @export
+
+create_audience = function(name, audience_filter,
+                           dataset = Sys.getenv("bq_dataSet")){
+
+  # get next audience_id
+  audience_id = pull_data(glue::glue(
+    "select max(audience_id)  from {dataset}.audience"
+  ))$f0_[1] + 1
+  if(is.na(audience_id)){ audience_id = 1 }
+
+  # get next audience_filter_id(s)
+  audience_filter_id = pull_data(glue::glue(
+    "select max(audience_filter_id)  from {dataset}.audience_filter"
+  ))$f0_[1]
+  if(is.na(audience_filter_id)){ audience_filter_id = 0 }
+
+  audience_filter_id = audience_filter_id + (1:audience_filter[, .N])
+
+  # push data to DB
+  message("creating audience ", name, ", audience_id = ", audience_id)
+
+  push_data(
+    "audience",
+    data.table(
+      audience_id = as.integer(audience_id),
+      name = name,
+      create_datetime = Sys.time()
+    )
+  )
+
+  push_data(
+    "audience_filter",
+    audience_filter[, .(audience_filter_id = as.integer(audience_filter_id),
+                        audience_id = as.integer(audience_id),
+                        filter_on,
+                        comparator_sql,
+                        comparator_params,
+                        create_datetime = Sys.time())]
+  )
+
+  return(audience_id)
+
+}
+
+# . event handlers ----
 
 audienceFilterMetricOkObs = function(input, rv){
   observeEvent(input$audienceFilterMetricOk, {
@@ -166,45 +224,7 @@ audienceFilterVariableOkObs = function(input, rv){
   })
 }
 
-create_audience_filter_metric_plot = function(input, rv){
-
-  rv$user()[, incl_margin := get(input$audienceFilterMetric) %between% input$audienceFilterMetricRange]
-  rv$user()[is.na(incl_margin), incl_margin := FALSE]
-
-  ggplot(rv$user(), aes(get(input$audienceFilterMetric),
-                        fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
-    geom_histogram(stat="count") +
-    ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) +
-    scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"),
-                      breaks = c("Included", "Removed", "Filtered by prior filter"),
-                      name = "") +
-    xlab(input$audienceFilterMetric) +
-    ylab("Users") +
-    theme(panel.background = element_blank(),
-          panel.grid.major.y = element_line(color = "grey90"),
-          legend.position = "bottom")
-
-}
-
-create_audience_filter_variable_plot = function(input, rv){
-
-  rv$user()[, incl_margin := get(input$audienceFilterVariable) %in% input$audienceFilterVariableSelected]
-
-  ggplot(rv$user(), aes(get(input$audienceFilterVariable),
-                        fill = ifelse(incl, ifelse(incl_margin, "Included", "Removed"), "Filtered by prior filter"))) +
-    geom_histogram(stat="count") +
-    ggtitle(glue("{rv$user()[, sum(incl & incl_margin)]} of {rv$user()[, sum(incl)]} users remain")) +
-    scale_fill_manual(values = c("#6280F8", "#9EB0FA", "grey85"),
-                      breaks = c("Included", "Removed", "Filtered by prior filter"),
-                      name = "") +
-    xlab(input$audienceFilterMetric) +
-    ylab("Users") +
-    coord_flip() +
-    theme(panel.background = element_blank(),
-          panel.grid.major.y = element_line(color = "grey90"),
-          legend.position = "bottom")
-
-}
+# . modals ----
 
 createAudienceModal <- function(){
   modalDialog(
@@ -218,6 +238,8 @@ createAudienceModal <- function(){
     )
   )
 }
+
+# . event handlers ----
 
 createAudienceOkObs = function(input, rv, session){
   observeEvent(input$createAudienceOk, {

@@ -12,6 +12,7 @@ get_user_impact_data = function(experiment_id,
                                 impact_variable,
                                 pre_period_days = 14){
 
+  # format impact variables as a sql statement
   ts_vars = paste(
     glue::glue(
       "avg(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
@@ -65,67 +66,20 @@ get_user_impact_data = function(experiment_id,
 
 }
 
-#' Analyzes output of get_user_impact_data
-#'
-#' @param user_impact_data Output of get_user_impact_data
-#'
-#' @return text description of test results
-#' @export
-
-measure_user_impact = function(user_impact_data){
-
-  return("Deprecate")
-
-  # if(is.null(user_impact_data)){
-  #   return("Press Measure Impact to get results")
-  # }
-  #
-  # pre.tt = stats::t.test(
-  #   user_impact_data[period == "pre" & treatment == "Control", impact_variable],
-  #   user_impact_data[period == "pre" & treatment != "Control", impact_variable]
-  # )
-  #
-  # post.tt = stats::t.test(
-  #   user_impact_data[period == "post" & treatment == "Control", impact_variable],
-  #   user_impact_data[period == "post" & treatment != "Control", impact_variable]
-  # )
-  #
-  # impact_point_est = stringr::str_c(
-  #   "    Control: ",
-  #   signif(pre.tt$estimate[1]), " -> ", signif(post.tt$estimate[1]),
-  #   " (", fmt_lift(post.tt$estimate[1] / pre.tt$estimate[1] - 1), ")\n",
-  #   "       Test: ",
-  #   signif(pre.tt$estimate[2]), " -> ", signif(post.tt$estimate[2]),
-  #   " (", fmt_lift(post.tt$estimate[2] / pre.tt$estimate[2] - 1), ")"
-  # )
-  #
-  # lift.pre = pre.tt$estimate[2] / pre.tt$estimate[1] - 1
-  # lift.post = post.tt$estimate[2] / post.tt$estimate[1] - 1
-  #
-  # tt_res = stringr::str_c(
-  #   " Pre period: test ",
-  #   scales::percent(abs(lift.pre)), " ", comp_str(lift.pre),
-  #   ", p = ", signif(pre.tt$p.value, 4), "\n",
-  #   "Post period: test ",
-  #   scales::percent(abs(lift.post)), " ", comp_str(lift.post),
-  #   ", p = ", signif(post.tt$p.value, 4), "\n\n",
-  #   "95% confidence interval for impact: ", format_tt_ci(post.tt)
-  # )
-  #
-  # return(stringr::str_c(impact_point_est, "\n\n", tt_res))
-
-}
-
+# plot either the population distribution (if estimate = F) or the distribution
+# of our estimate for the mean
 plot_distribution = function(user_impact_data,
                              estimate = F,
                              colors = rctr_colors()){
 
+  # return empty plot is user_impact_data has not been loaded
   if(is.null(user_impact_data)){
     return(
       ggplot() + ggtitle("") + theme(panel.background = element_blank())
     )
   }
 
+  # format data for plotting
   user_melt = melt(user_impact_data[, !"treatment_id"],
                    id.vars = c("unit_id", "period", "treatment"))
 
@@ -147,10 +101,12 @@ plot_distribution = function(user_impact_data,
     )
   } else {
 
+    # compute sample mean and variance
     estimate = user_melt[, .(mu = mean(value),
                              se = sd(value) / sqrt(.N)),
                          .(treatment, period, variable)]
 
+    # create axis data for plot
     estimate_gg_data = NULL
     for(v in estimate[, unique(variable)]){
       for(pr in c("pre", "post")){
@@ -165,6 +121,7 @@ plot_distribution = function(user_impact_data,
       }
     }
 
+    # join axis to estimates
     estimate_gg_data = merge(estimate_gg_data, estimate, allow.cartesian = T)
 
     return(
@@ -187,23 +144,4 @@ plot_distribution = function(user_impact_data,
 
   }
 
-}
-
-# helper functions ----
-
-fmt_lift = function(x){
-  stringr::str_c(ifelse(x > 0, "+", ""), scales::percent(x))
-}
-
-comp_str = function(x){
-  ifelse(x<0, "lower than control", "higher than control")
-}
-
-format_tt_ci = function(tt){
-  stringr::str_c("(",
-        scales::percent(-tt$conf.int[2] / tt$estimate[1]),
-        ", ",
-        scales::percent(-tt$conf.int[1] / tt$estimate[1]),
-        ")"
-  )
 }

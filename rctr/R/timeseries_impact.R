@@ -1,4 +1,4 @@
-#' Pulls timeseries data for analysis and plotting
+#' Pulls time series data for analysis and plotting
 #'
 #' @param dataset BigQuery dataset
 #' @param impact_variable variable to be measured
