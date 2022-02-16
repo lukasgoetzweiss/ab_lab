@@ -13,7 +13,6 @@ library(shinythemes)
 library(DT)
 
 # general libraries
-library(bigrquery)
 library(bigQueryR)
 library(data.table)
 library(lubridate)
@@ -94,7 +93,13 @@ ui = navbarPage(
   treatment_ui(),
 
   # audience
-  audience_ui()
+  audience_ui(),
+
+  tags$script(
+    HTML("var header = $('.navbar > .container-fluid');
+          header.append('<div style=\"float:right; padding-top: 8px\"><button id=\"reloadData\" type=\"button\" class=\"btn btn-primary action-button\"><i class=\"fa fa-rotate-right\" role=\"presentation\" aria-label=\"rotate-right icon\"></i> </button></div>')")
+  )
+
 )
 
 #### SERVER ----
@@ -103,6 +108,32 @@ server <- function(input, output, session) {
 
   # initialize ----
   rv = reactiveValues()
+
+  # refresh data observer
+  observeEvent(input$reloadData, {
+    message("reloading data")
+    showModal(loadingModal("Refreshing data ..."))
+    rv$treatment = get_table("treatment")
+    rv$audience = get_table("audience")
+    rv$audience_filter = get_table("audience_filter")
+    rv$experiment = get_table("experiment")
+    rv$experiment_treatment = get_table("experiment_treatment")
+    rv$experiment_audience = get_table("experiment_audience")
+
+    # query data integration tables from project schema
+    user = get_table(Sys.getenv("segment_table"))
+
+    # check if time series table is setup, if so load impact variable options
+    if(Sys.getenv("timeseries_table") %in% schema_tbls){
+      impact_variables = setdiff(
+        names(get_table(Sys.getenv("timeseries_table"), limit = 1)),
+        c(Sys.getenv("unit_pk"), Sys.getenv("timeseries_timestamp"))
+      )
+    } else {
+      impact_variables = c("(set up timeseries table)")
+    }
+    removeModal()
+  })
 
   # * * * * TREATMENT * * * * ----
 
@@ -193,7 +224,6 @@ server <- function(input, output, session) {
 
   # . . observers ----
 
-
   # audienceFilterModal
   observeEvent(input$createAudienceFilter, {
     showModal(audienceFilterModal(input, output, metadata))
@@ -241,13 +271,7 @@ server <- function(input, output, session) {
     removeModal()
     showModal(loadingModal("Creating experiment ..."))
     create_experiment(
-      input, rv, session,
-      audience_id = rv$audience[
-        name == input$newExperimentAudience, audience_id
-      ],
-      treatment_id = rv$treatment[
-        name == input$newExperimentTreatment, treatment_id
-      ]
+      input, rv, session
     )
     removeModal()
     showModal(modalDialog(p("Experiment created"), easyClose = T))
@@ -262,10 +286,7 @@ server <- function(input, output, session) {
 
   # experimentSummary
   output$experimentSummary <- renderText(
-    get_experiment_summary(input$selectedExperiment,
-                           experiment_audience = rv$experimentAudience,
-                           experiment = rv$experiment,
-                           treatment = rv$treatment)
+    get_experiment_summary(input$selectedExperiment, rv)
   )
 
   # analysisHorizonUI
@@ -273,19 +294,33 @@ server <- function(input, output, session) {
 
   # impact table
   output$cumulativeMeasurementDT <- renderDT(
-    format_cumulative_impact(rv$cumulative_impact_data,
-                             horizon_select = input$analysisHorizon)
+    format_cumulative_impact(
+      compute_cumulative_impact(
+        rv$cumulative_impact_data,
+        control_treatment_id = rv$experiment[
+          name == rv$selectedExperimentLoaded,
+          control_treatment_id
+        ]
+      ),
+      horizon_select = input$analysisHorizon
+    )
   )
 
   # impact plots
   output$timeseriesPlot <- renderPlot(
     plot_timeseries_impact(rv$timeseries_impact_data,
-                           rv$experiment[name == input$selectedExperiment,
+                           rv$experiment[name == rv$selectedExperimentLoaded,
                                          start_datetime])
   )
 
   output$cumulativePlot <- renderPlot(
-    plot_cumulative_impact(compute_cumulative_impact(rv$cumulative_impact_data))
+    plot_cumulative_impact(compute_cumulative_impact(
+      rv$cumulative_impact_data,
+      control_treatment_id = rv$experiment[
+        name == rv$selectedExperimentLoaded,
+        control_treatment_id
+      ]
+    ))
   )
 
   output$populationPlot <- renderPlot(
@@ -298,6 +333,7 @@ server <- function(input, output, session) {
   observeEvent(input$loadImpact, {
     showModal(loadingModal("Loading unit-wise observations ..."))
     rv$impactVariableLoaded = copy(input$impactVariable)
+    rv$selectedExperimentLoaded = copy(input$selectedExperiment)
     rv$user_impact_data = get_user_impact_data(
       experiment_id = rv$experiment[name == input$selectedExperiment,
                                     experiment_id],

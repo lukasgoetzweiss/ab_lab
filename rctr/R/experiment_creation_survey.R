@@ -16,7 +16,12 @@ create_experiment_ui = function(rv, impact_variables){
     selectInput(
       "newExperimentTreatment",
       label = "Select Treatment",
-      choices = setdiff(rv$treatment[, unique(name)], "Control")
+      choices = rv$treatment[, unique(name)]
+    ),
+    selectInput(
+      "newExperimentControlTreatment",
+      "Select Control Treatment",
+      choices = rv$treatment[, unique(name)]
     ),
     selectInput(
       "newExperimentAudience",
@@ -39,9 +44,10 @@ create_experiment_ui = function(rv, impact_variables){
     numericInput(
       "newExperimentControlPercentage",
       "Control Percentage",
-      0.5,
+      50,
       min = 0,
-      max = 1
+      max = 100,
+      step = 1
     ),
     actionButton("newExperimentSave", "Save")
   )

@@ -46,7 +46,8 @@ get_cumulative_impact_data = function(experiment_id,
 
 # analyzes cumulative impact data, computes lift, significance, and confidence
 # intervals
-compute_cumulative_impact = function(cumulative_impact_data){
+compute_cumulative_impact = function(cumulative_impact_data,
+                                     control_treatment_id){
 
   # check if data is valide
   if(is.null(cumulative_impact_data) ||
@@ -65,8 +66,12 @@ compute_cumulative_impact = function(cumulative_impact_data){
   for(j in meas_vars){
     for(i in cumulative_impact_data[, unique(horizon)]){
       i_tt = t.test(
-        cumulative_impact_data[treatment_id == 1 & horizon == i, get(j)],
-        cumulative_impact_data[treatment_id != 1 & horizon == i, get(j)]
+        cumulative_impact_data[
+          treatment_id == control_treatment_id & horizon == i, get(j)
+        ],
+        cumulative_impact_data[
+          treatment_id != control_treatment_id & horizon == i, get(j)
+        ]
       )
       meas_data = rbind(
         meas_data,
@@ -125,13 +130,13 @@ plot_cumulative_impact = function(cumulative_impact){
 }
 
 # formats cumulative impact analysis result for a specified horizon
-format_cumulative_impact = function(cumulative_impact_data, horizon_select){
+format_cumulative_impact = function(cumulative_impact, horizon_select){
 
-  if(is.null(cumulative_impact_data)){
+  if(is.null(cumulative_impact)){
     return(data.table())
   } else {
     return(
-      compute_cumulative_impact(cumulative_impact_data)[
+      cumulative_impact[
         horizon %in% horizon_select,
         .(var,
           control = signif(control, 4),
