@@ -32,13 +32,13 @@ ddl.check = function(hard_reset = F){
   # check built-in tables
   schema_tbls = pull_data(glue::glue(
     "select * from {Sys.getenv('bq_dataSet')}.INFORMATION_SCHEMA.TABLES"
-  ))
+  ))[, table_name]
   built_in_tables = ddl.built_in_tables()
   for(i in 1:length(built_in_tables)){
 
     i_tbl = built_in_tables[i]
 
-    if(i_tbl %in% schema_tbls[, table_name]){
+    if(i_tbl %in% schema_tbls){
 
       if(hard_reset == T){
         message(Sys.time(), ": removing ", i_tbl)
@@ -54,7 +54,7 @@ ddl.check = function(hard_reset = F){
       message(Sys.time(), ": did not found ", built_in_tables[i],
               " creating now ...")
 
-      # run appropriate ddl functino
+      # run appropriate ddl function
       get(paste("ddl.", i_tbl, sep = ""))()
 
       # add table to list of tables in schema
@@ -67,14 +67,14 @@ ddl.check = function(hard_reset = F){
   user_defined_tables = ddl.user_defined_tables()
   for(i in 1:length(user_defined_tables)){
     i_tbl = user_defined_tables[i]
-    if(i_tbl %in% schema_tbls[, table_name]){
+    if(i_tbl %in% schema_tbls){
       message(Sys.time(), ": found ", i_tbl)
     } else {
       warning(paste("could not find user-defined table:", i_tbl))
     }
   }
 
-  return(schema_tbls[, table_name])
+  return(schema_tbls)
 
 }
 
@@ -112,6 +112,7 @@ ddl.experiment = function(){
   #   experiment_id INT64
   #   , name STRING
   #   , audience_id INT64
+  #   , control_treatment_id INT64
   #   , primary_impact_variable STRING
   #   , start_datetime TIMESTAMP
   #   , end_datetime TIMESTAMP
@@ -127,6 +128,7 @@ ddl.experiment = function(){
       experiment_id = as.integer(0),
       name = "template",
       audience_id = as.integer(0),
+      control_treatment_id = as.integer(0),
       primary_impact_variable = "template",
       start_datetime = Sys.time(),
       end_datetime = Sys.time(),
@@ -236,7 +238,7 @@ ddl.experiment_audience = function(){
     template_data = data.table(
       experiment_audience_id = as.integer(0),
       experiment_id = as.integer(0),
-      unit_id = as.integer(0),
+      unit_id = "template",
       treatment_id = as.integer(0),
       active_fg = "template",
       create_datetime = Sys.time(),

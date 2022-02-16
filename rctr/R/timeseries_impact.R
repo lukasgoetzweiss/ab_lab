@@ -9,7 +9,12 @@
 #' @export
 get_timeseries_impact_data = function(experiment_id,
                                       impact_variable,
-                                      pre_period_days = 14){
+                                      pre_period_days = 14,
+                                      end_date = "current_date - 1"){
+
+  if(is.Date(end_date)){
+    end_date = glue("'{end_date}'")
+  }
 
   ts_vars = paste(
     glue::glue(
@@ -33,7 +38,7 @@ get_timeseries_impact_data = function(experiment_id,
                                     from {Sys.getenv('bq_dataSet')}.experiment
                                    where experiment_id = {experiment_id}),
                                  interval {-pre_period_days} day),
-                        current_date - 1
+                        {end_date}
                       )
                     ) as date
                   ) t_ax

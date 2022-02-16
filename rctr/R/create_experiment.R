@@ -5,12 +5,13 @@
 #'
 #' @return experiment parameters in a format consistent with database
 #' @export
-input_to_experiment_record = function(input){
+input_to_experiment_record = function(rv, input){
 
   # check input fields
   required_fields = c(
     "newExperimentName",
     "newExperimentTreatment",
+    "newExperimentControlTreatment",
     "newExperimentAudience",
     "newExperimentVariable",
     "newExperimentControlPercentage",
@@ -19,12 +20,22 @@ input_to_experiment_record = function(input){
 
   missing_fields = setdiff(required_fields, names(input))
   if(length(missing_fields)){
-    stop(paste("Missing fields: ", paste(missing_fields, collapse = ", ")))
+    stop(paste("Missing input field(s): ",
+               paste(missing_fields, collapse = ", ")))
   }
+
+  audience_id = rv$audience[
+    name == input$newExperimentAudience, audience_id
+  ]
+
+  control_treatment_id = rv$treatment[
+    name == input$newExperimentControlTreatment, treatment_id
+  ]
 
   return(data.table(
     name = input$newExperimentName,
-    audience = input$newExperimentAudience,
+    audience_id = audience_id,
+    control_treatment_id = control_treatment_id,
     primary_impact_variable = input$newExperimentVariable,
     start_datetime = as.POSIXct(input$newExperimentDateRange[1]),
     end_datetime = as.POSIXct(input$newExperimentDateRange[2]),
@@ -47,12 +58,15 @@ input_to_experiment_record = function(input){
 #' @import data.table
 #' @export
 create_experiment = function(input, rv, session,
-                             audience_id,
-                             treatment_id,
                              dataset = Sys.getenv("bq_dataSet")){
 
   # cast input data to experiment record
-  experiment_record = input_to_experiment_record(input)
+  experiment_record = input_to_experiment_record(rv, input)
+
+  # get treatment_id
+  treatment_id = rv$treatment[
+    name == input$newExperimentTreatment, treatment_id
+  ]
 
   # determine next experiment_id
   experiment_id = pull_data(glue::glue(
@@ -65,10 +79,6 @@ create_experiment = function(input, rv, session,
 
   experiment_record[, experiment_id := as.integer(experiment_id)]
 
-  # drop audience name and replace with audience_id
-  experiment_record[, audience := audience_id]
-  setnames(experiment_record, "audience", "audience_id")
-
   # create experiment treatment
   message(Sys.time(), ": creating experiment_treatment records")
 
@@ -78,15 +88,17 @@ create_experiment = function(input, rv, session,
   ))$f0_[1]
   if(is.na(experiment_treatment_id)){ experiment_treatment_id = 0 }
 
+  # add two treatments to experiment_treatment
   experiment_treatment_id = experiment_treatment_id + (1:2)
 
   # create new experiment_treatment records
   experiment_treatment_records = data.table(
     experiment_treatment_id = as.integer(experiment_treatment_id),
     experiment_id = as.integer(experiment_id),
-    treatment_id = as.integer(c(1, treatment_id)),
-    sample_weight = c(input$newExperimentControlPercentage / 100,
-                      1 - input$newExperimentControlPercentage / 100),
+    treatment_id = as.integer(c(experiment_record$control_treatment_id,
+                                treatment_id)),
+    sample_weight = c((input$newExperimentControlPercentage / 100),
+                      1 - (input$newExperimentControlPercentage / 100)),
     create_datetime = Sys.time()
   )
 
@@ -135,14 +147,17 @@ randomize_new_experiment_segment = function(rv, input, experiment_id){
 
   # get parameters for randomization
   n_units = segment_units[, .N]
-  p_ctrl = input$newExperimentControlPercentage
+  p_ctrl = input$newExperimentControlPercentage / 100
   tx_id = rv$treatment[name == input$newExperimentTreatment, treatment_id]
+  ctrl_id = rv$treatment[name == input$newExperimentControlTreatment,
+                         treatment_id]
 
   # create random draw for each user
   unit_ru = runif(n_units, 0, 1)
 
   # split users based on random draw
-  unit_treatment = 1 + (unit_ru > quantile(unit_ru, p_ctrl)) * (tx_id - 1)
+  unit_treatment =
+    ctrl_id + (unit_ru > quantile(unit_ru, p_ctrl)) * (tx_id - ctrl_id)
 
   # prepare experiment_audience_id
   experiment_audience_id = pull_data(glue(
@@ -151,6 +166,10 @@ randomize_new_experiment_segment = function(rv, input, experiment_id){
   ))[, f0_]
   if(is.na(experiment_audience_id)){ experiment_audience_id = 0}
   experiment_audience_id = experiment_audience_id + (1:n_units)
+
+  message(lubridate::now(), " randomization complete, treatment distribution:")
+  message("treatment_id = ", tx_id, " : ", sum(unit_treatment == tx_id))
+  message("treatment_id = ", ctrl_id, " : ", sum(unit_treatment == ctrl_id))
 
   return(
     segment_units[, .(

@@ -76,13 +76,13 @@ Make sure you have [docker](https://docs.docker.com/) installed on your machine 
 ```
 docker build -t test .
 
-export GOOGLE_APPLICATION_CREDENTIALS=/srv/hazel-champion-318400-412f14ac362f.json
+export GOOGLE_APPLICATION_CREDENTIALS=<path to google credentials json>
 
 docker run --rm \
   -e GOOGLE_APPLICATION_CREDENTIALS \
   -p 80:80 \
-  -v ~/ab_lab_mnt:/srv \
-  test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 3838)"
+  -v <path to context.yml file parent directory>:/srv \
+  test Rscript -e "shiny::runApp('/src/rctr/act_app/', port = 80)"
 ```
 
 You're all setup! You can now view the app at http://localhost:80
