@@ -93,7 +93,13 @@ ui = navbarPage(
   treatment_ui(),
 
   # audience
-  audience_ui()
+  audience_ui(),
+
+  tags$script(
+    HTML("var header = $('.navbar > .container-fluid');
+          header.append('<div style=\"float:right; padding-top: 8px\"><button id=\"reloadData\" type=\"button\" class=\"btn btn-primary action-button\"><i class=\"fa fa-rotate-right\" role=\"presentation\" aria-label=\"rotate-right icon\"></i> </button></div>')")
+  )
+
 )
 
 #### SERVER ----
@@ -102,6 +108,32 @@ server <- function(input, output, session) {
 
   # initialize ----
   rv = reactiveValues()
+
+  # refresh data observer
+  observeEvent(input$reloadData, {
+    message("reloading data")
+    showModal(loadingModal("Refreshing data ..."))
+    rv$treatment = get_table("treatment")
+    rv$audience = get_table("audience")
+    rv$audience_filter = get_table("audience_filter")
+    rv$experiment = get_table("experiment")
+    rv$experiment_treatment = get_table("experiment_treatment")
+    rv$experiment_audience = get_table("experiment_audience")
+
+    # query data integration tables from project schema
+    user = get_table(Sys.getenv("segment_table"))
+
+    # check if time series table is setup, if so load impact variable options
+    if(Sys.getenv("timeseries_table") %in% schema_tbls){
+      impact_variables = setdiff(
+        names(get_table(Sys.getenv("timeseries_table"), limit = 1)),
+        c(Sys.getenv("unit_pk"), Sys.getenv("timeseries_timestamp"))
+      )
+    } else {
+      impact_variables = c("(set up timeseries table)")
+    }
+    removeModal()
+  })
 
   # * * * * TREATMENT * * * * ----
 
@@ -191,7 +223,6 @@ server <- function(input, output, session) {
   })
 
   # . . observers ----
-
 
   # audienceFilterModal
   observeEvent(input$createAudienceFilter, {
