@@ -13,6 +13,15 @@ get_cumulative_impact_data = function(experiment_id,
       "sum(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
     ), collapse = ", "
   )
+  
+  horizon_sql = stringr::str_c(
+    "select ",
+    paste(
+      seq(1, max_horizon, horizon_step),
+      collapse = ' as horizon \n union all \n select ' 
+    ),
+    ' as horizon'
+  )
 
   return(pull_data(glue::glue(
 
@@ -21,11 +30,11 @@ get_cumulative_impact_data = function(experiment_id,
           ,  ea.treatment_id
           ,  h.horizon
           ,  e.start_datetime
-        from {Sys.getenv('bq_dataSet')}.experiment_audience ea
-        join {Sys.getenv('bq_dataSet')}.experiment e
+        from experiment_audience ea
+        join experiment e
           on ea.experiment_id = e.experiment_id
   cross join (select horizon
-                from UNNEST(GENERATE_ARRAY(1, {max_horizon}, {horizon_step})) as horizon
+                from ({horizon_sql})
              ) h
        where e.experiment_id = {experiment_id}
     )
@@ -35,10 +44,10 @@ get_cumulative_impact_data = function(experiment_id,
       ,  g.horizon
       ,  {cm_vars}
     from grid g
-    left join {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
+    left join {Sys.getenv('timeseries_table')} ts
       on g.unit_id = ts.{Sys.getenv('unit_pk')}
-     and ts.{Sys.getenv('timeseries_timestamp')} >= cast(g.start_datetime as date)
-     and ts.{Sys.getenv('timeseries_timestamp')} <= cast(date_add(g.start_datetime, INTERVAL g.horizon day) as date)
+     and date('1970-01-01', '+' || ts.{Sys.getenv('timeseries_timestamp')} || ' days') >= date(g.start_datetime, 'unixepoch')
+     and date('1970-01-01', '+' || ts.{Sys.getenv('timeseries_timestamp')} || ' days') <= date(date(g.start_datetime, 'unixepoch'), '+' || g.horizon || ' days')
    group by 1,2,3;"
   )))
 

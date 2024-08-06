@@ -13,7 +13,7 @@ library(shinythemes)
 library(DT)
 
 # general libraries
-library(bigQueryR)
+#library(bigQueryR)
 library(data.table)
 library(lubridate)
 library(glue)
@@ -35,6 +35,8 @@ if(run_locally){
     stop("Please set environment by running ",
          "rctr::set_env(<path to context.yml>) (see readme)")
   }
+  devtools::load_all("~/git/ab_lab/rctr")
+  set_env("~/git/exampleCorp/ec/context.yml")
 } else {
   devtools::load_all("/src/rctr/rctr")
   set_env("/srv/context.yml")
@@ -353,11 +355,7 @@ server <- function(input, output, session) {
       experiment_id = rv$experiment[name == input$selectedExperiment,
                                     experiment_id],
       impact_variable = input$impactVariable,
-      max_horizon = as.numeric(
-        (today() - days(1) -
-        rv$experiment[name == input$selectedExperiment,
-                      as_date(start_datetime)])
-      )
+      max_horizon = 48
     )
     removeModal()
   })

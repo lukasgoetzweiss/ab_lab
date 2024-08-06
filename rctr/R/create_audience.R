@@ -134,15 +134,15 @@ create_audience = function(name, audience_filter,
 
   # get next audience_id
   audience_id = pull_data(glue::glue(
-    "select max(audience_id)  from {dataset}.audience"
+    "select max(audience_id) as f0_ from audience"
   ))$f0_[1] + 1
-  if(is.na(audience_id)){ audience_id = 1 }
+  if(!length(audience_id) || is.na(audience_id)){ audience_id = 1 }
 
   # get next audience_filter_id(s)
   audience_filter_id = pull_data(glue::glue(
-    "select max(audience_filter_id)  from {dataset}.audience_filter"
+    "select max(audience_filter_id) as f0_ from audience_filter"
   ))$f0_[1]
-  if(is.na(audience_filter_id)){ audience_filter_id = 0 }
+  if(!length(audience_filter_id) || is.na(audience_filter_id)){ audience_filter_id = 0 }
 
   audience_filter_id = audience_filter_id + (1:audience_filter[, .N])
 

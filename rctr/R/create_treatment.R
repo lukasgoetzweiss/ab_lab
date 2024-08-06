@@ -44,9 +44,9 @@ createTreatmentObsOk = function(input, rv){
 create_treatment = function(name, dataset = Sys.getenv("bq_dataSet")){
 
   treatment_id = pull_data(glue::glue(
-    "select max(treatment_id)  from {dataset}.treatment"
+    "select max(treatment_id) as f0_ from treatment"
   ))$f0_[1] + 1
-  if(is.na(treatment_id)){ treatment_id = 1 }
+  if(!length(treatment_id) || is.na(treatment_id)){ treatment_id = 1 }
 
   message("creating treatment ", name, ", treatment_id = ", treatment_id)
 

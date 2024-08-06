@@ -86,4 +86,3 @@ docker run --rm \
 ```
 
 You're all setup! You can now view the app at http://localhost:80
-

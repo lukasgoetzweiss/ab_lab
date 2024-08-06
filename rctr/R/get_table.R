@@ -11,6 +11,6 @@ get_table = function(table_name, limit = NULL,
   message(Sys.time(), ": pulling ", table_name, " from ", dataset)
   limit_str = ifelse(is.null(limit), "", stringr::str_c("limit ", limit))
   data.table(pull_data(glue::glue(
-    "select * from {dataset}.{table_name} {limit_str}"
+    "select * from {table_name} {limit_str}"
   )))
 }

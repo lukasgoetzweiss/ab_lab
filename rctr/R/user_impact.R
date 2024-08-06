@@ -18,6 +18,29 @@ get_user_impact_data = function(experiment_id,
       "avg(coalesce(ts.{impact_variable}, 0)) as {impact_variable}"
     ), collapse = ", "
   )
+  
+  experiment_start = pull_data(glue::glue(
+    'select cast(start_datetime as date) as start_date
+       from experiment
+      where experiment_id = {experiment_id}'
+  ))[, lubridate::date(start_date)]
+  
+  experiment_end = pull_data(glue::glue(
+    'select cast(end_datetime as date) as end_date
+       from experiment
+      where experiment_id = {experiment_id}'
+  ))[, lubridate::date(end_date)]
+  
+  date_sql = stringr::str_c(
+    "select '",
+    paste(
+        seq.Date(from = experiment_start - lubridate::days(pre_period_days), 
+                 to = experiment_end, 
+                 by = "day"),
+        collapse = "' as date \n union all \n select '"
+      ),
+    "' as date"
+  )
 
   return(pull_data(glue::glue(
     " with grid as (
@@ -26,29 +49,21 @@ get_user_impact_data = function(experiment_id,
               ,  ea.treatment_id
               ,  t.name                       as treatment
 
-            from {Sys.getenv('bq_dataSet')}.experiment_audience ea
+            from experiment_audience ea
 
       cross join (select *
-                    from UNNEST(
-                      GENERATE_DATE_ARRAY(
-                        date_add((select cast(start_datetime as date)
-                                    from {Sys.getenv('bq_dataSet')}.experiment
-                                   where experiment_id = {experiment_id}),
-                                 interval {-pre_period_days} day),
-                        current_date - 1
-                      )
-                    ) as date
+                    from ({date_sql})
                   ) t_ax
 
-            join {Sys.getenv('bq_dataSet')}.treatment t
+            join treatment t
               on t.treatment_id = ea.treatment_id
 
            where ea.experiment_id = {experiment_id}
       )
 
       select g.unit_id
-          ,  case when g.date > (select cast(start_datetime as date)
-                                   from {Sys.getenv('bq_dataSet')}.experiment
+          ,  case when g.date > (select date(start_datetime, 'unixepoch')
+                                   from experiment
                                   where experiment_id = {experiment_id})
                   then 'post'
                   else 'pre' end          as period
@@ -57,9 +72,9 @@ get_user_impact_data = function(experiment_id,
           ,  {ts_vars}
         from grid g
 
-   left join {Sys.getenv('bq_dataSet')}.{Sys.getenv('timeseries_table')} ts
+   left join {Sys.getenv('timeseries_table')} ts
           on g.unit_id = ts.{Sys.getenv('unit_pk')}
-         and g.date = ts.{Sys.getenv('timeseries_timestamp')}
+         and g.date = date('1970-01-01', '+' || ts.{Sys.getenv('timeseries_timestamp')} || ' days')
 
        group by 1,2,3,4"
   )))

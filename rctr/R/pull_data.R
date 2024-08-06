@@ -9,23 +9,36 @@
 #'
 #' @return data.table populated with query results
 #' @export
-pull_data = function(sql, projectID = Sys.getenv("bq_projectID")){
-  message(lubridate::now(), " running query:")
-  message(sql)
-  success = F
-  attempt <- 1
-  while( success == F && attempt <= 3 ) {
-    message("attempt", attempt)
-    attempt <- attempt + 1
-    try({
-      tb <- bigrquery::bq_project_query(projectID, sql)
-      res = bigrquery::bq_table_download(tb)
-      success = T
-    })
-    if(attempt > 3){
-      stop("Query failed after 3 attempts")
-    }
-  }
-
-  return(data.table::data.table(res))
+pull_data = function(sql, db_name = Sys.getenv("db_name")){
+  
+  # Establish connection to SQLite database
+  conn <- DBI::dbConnect(RSQLite::SQLite(), db_name)
+  
+  # Execute the SQL query and fetch the results into a data.table
+  data <- data.table(DBI::dbGetQuery(conn, sql))
+  
+  # Close the connection
+  DBI::dbDisconnect(conn)
+  
+  # Return the data.table
+  return(data)
+  
+  # message(lubridate::now(), " running query:")
+  # message(sql)
+  # success = F
+  # attempt <- 1
+  # while( success == F && attempt <= 3 ) {
+  #   message("attempt", attempt)
+  #   attempt <- attempt + 1
+  #   try({
+  #     tb <- bigrquery::bq_project_query(projectID, sql)
+  #     res = bigrquery::bq_table_download(tb)
+  #     success = T
+  #   })
+  #   if(attempt > 3){
+  #     stop("Query failed after 3 attempts")
+  #   }
+  # }
+  # 
+  # return(data.table::data.table(res))
 }

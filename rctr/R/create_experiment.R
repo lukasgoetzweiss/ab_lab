@@ -70,9 +70,9 @@ create_experiment = function(input, rv, session,
 
   # determine next experiment_id
   experiment_id = pull_data(glue::glue(
-    "select max(experiment_id)  from {dataset}.experiment"
+    "select max(experiment_id) as f0_ from experiment"
   ))$f0_[1] + 1
-  if(is.na(experiment_id)){ experiment_id = 1 }
+  if(!length(experiment_id) || is.na(experiment_id)){ experiment_id = 1 }
 
   message(Sys.time(), ": creating experiment ", experiment_record$name,
           ", experiment_id = ", experiment_id)
@@ -84,9 +84,9 @@ create_experiment = function(input, rv, session,
 
   # determine next experiment_treatment_ids
   experiment_treatment_id = pull_data(glue::glue(
-    "select max(experiment_treatment_id)  from {dataset}.experiment_treatment"
+    "select max(experiment_treatment_id) as f0_ from experiment_treatment"
   ))$f0_[1]
-  if(is.na(experiment_treatment_id)){ experiment_treatment_id = 0 }
+  if(!length(experiment_treatment_id) || is.na(experiment_treatment_id)){ experiment_treatment_id = 0 }
 
   # add two treatments to experiment_treatment
   experiment_treatment_id = experiment_treatment_id + (1:2)
@@ -141,7 +141,7 @@ randomize_new_experiment_segment = function(rv, input, experiment_id){
   # pull eligible users
   segment_units = pull_data(glue(
     "select {Sys.getenv('unit_pk')} as unit_id
-         from {Sys.getenv('bq_dataSet')}.{Sys.getenv('segment_table')}
+         from {Sys.getenv('segment_table')}
         where {seg_sql}"
   ))
 
@@ -161,10 +161,10 @@ randomize_new_experiment_segment = function(rv, input, experiment_id){
 
   # prepare experiment_audience_id
   experiment_audience_id = pull_data(glue(
-    "select max(experiment_audience_id)
-         from {Sys.getenv('bq_dataSet')}.experiment_audience"
+    "select max(experiment_audience_id) as f0_
+         from experiment_audience"
   ))[, f0_]
-  if(is.na(experiment_audience_id)){ experiment_audience_id = 0}
+  if(!length(experiment_audience_id || is.na(experiment_audience_id))){ experiment_audience_id = 0}
   experiment_audience_id = experiment_audience_id + (1:n_units)
 
   message(lubridate::now(), " randomization complete, treatment distribution:")

@@ -4,7 +4,7 @@ set_env = function(config_path = "~/context.yml"){
   # load yaml and check for expected fields
   config = yaml::read_yaml(config_path)
 
-  expected_fields = c("bq_project", "bq_user", "bq_dataset",
+  expected_fields = c("bq_project", "bq_user", "bq_dataset", 'db_name',
                       "unit_pk", "segment_table", "timeseries_table",
                       "timeseries_timestamp")
 
@@ -17,6 +17,8 @@ set_env = function(config_path = "~/context.yml"){
   # set environment variables
   Sys.setenv(bq_projectID = config$bq_project)
   Sys.setenv(bq_dataSet = config$bq_dataset)
+  
+  Sys.setenv(db_name = config$db_name)
 
   Sys.setenv(unit_pk = config$unit_pk)
   Sys.setenv(segment_table = config$segment_table)
@@ -26,12 +28,12 @@ set_env = function(config_path = "~/context.yml"){
 
   # authenticate bigQueryR (bigrquery is authenticated with an environment
   # passed in at run time)
-  if(!is.null(config$bq_verif)){
-    message("authenticating bigQueryR using json file")
-    bigQueryR::bqr_auth(json_file = config$bq_verif)
-  } else {
-    message("authenticating bigQueryR using email")
-    bigQueryR::bqr_auth(email = config$bq_user)
-  }
+  # if(!is.null(config$bq_verif)){
+  #   message("authenticating bigQueryR using json file")
+  #   bigQueryR::bqr_auth(json_file = config$bq_verif)
+  # } else {
+  #   message("authenticating bigQueryR using email")
+  #   bigQueryR::bqr_auth(email = config$bq_user)
+  # }
 
 }
